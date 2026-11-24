@@ -1,0 +1,10 @@
+node_modules
+.expo
+dist
+coverage
+android
+ios
+.private
+src/generated
+PROMPT_APP_EMAGRECIMENTO_OTAVIO.md
+package-lock.json
