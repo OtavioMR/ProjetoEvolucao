@@ -13,9 +13,19 @@ import {
 import { DatabaseQueue } from '../core/database/connection';
 import { migrateDatabase } from '../core/database/migrate';
 import { ProfileRepository } from '../core/database/repositories/profile-repository';
+import { DiaryRepository } from '../core/database/repositories/diary-repository';
+import { BackupRepository } from '../core/database/repositories/backup-repository';
+import { localDateAt } from '../core/date-time/local-date';
 import type { AppSnapshot, Preferences, ProfileInput, SetupInput } from '../domain/profile/profile';
 
 type AppContextValue = {
+  diary: DiaryRepository | null;
+  backup: BackupRepository | null;
+  selectedDate: string;
+  selectDate: (date: string) => void;
+  revision: number;
+  recordsChanged: () => void;
+  reloadProfile: () => Promise<void>;
   status: 'loading' | 'ready' | 'error';
   snapshot: AppSnapshot | null;
   retry: () => void;
@@ -30,6 +40,12 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [attempt, setAttempt] = useState(0);
   const repository = useRef<ProfileRepository | null>(null);
+  const [services, setServices] = useState<{
+    diary: DiaryRepository;
+    backup: BackupRepository;
+  } | null>(null);
+  const [selectedDate, selectDate] = useState('');
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,13 +56,16 @@ export function AppProvider({ children }: PropsWithChildren) {
         const db = await openDatabaseAsync('evolucao.db');
         close = () => db.closeAsync();
         await migrateDatabase(db);
-        const repo = new ProfileRepository(new DatabaseQueue(db), randomUUID);
+        const queue = new DatabaseQueue(db);
+        const repo = new ProfileRepository(queue, randomUUID);
         const data = await repo.read();
         if (cancelled) {
           await close();
           return;
         }
         repository.current = repo;
+        setServices({ diary: new DiaryRepository(queue), backup: new BackupRepository(queue) });
+        selectDate(localDateAt(new Date(), data?.profile.timezone ?? 'America/Sao_Paulo'));
         initialized = true;
         setSnapshot(data);
         setStatus('ready');
@@ -73,13 +92,28 @@ export function AppProvider({ children }: PropsWithChildren) {
   return (
     <AppContext.Provider
       value={{
+        diary: services?.diary ?? null,
+        backup: services?.backup ?? null,
+        selectedDate,
+        selectDate,
+        revision,
+        recordsChanged: () => setRevision((n) => n + 1),
+        reloadProfile: async () => {
+          if (!repository.current) throw new Error('database_unavailable');
+          setSnapshot(await repository.current.read());
+          setRevision((n) => n + 1);
+        },
         status,
         snapshot,
         retry: () => {
           setStatus('loading');
           setAttempt((n) => n + 1);
         },
-        createProfile: (input) => execute((repo) => repo.create(input)),
+        createProfile: (input) =>
+          execute(async (repo) => {
+            await repo.create(input);
+            selectDate(localDateAt(new Date(), input.profile.timezone));
+          }),
         updateProfile: (input) =>
           execute(async (repo) => {
             if (!snapshot) throw new Error('profile_not_found');

@@ -71,7 +71,7 @@ if (process.argv.includes('--resume')) {
   await tap('Continuar', true);
   await find('Pronto para começar.');
   await tap('Confirmar perfil e começar', true);
-  await find('Perfil salvo neste dispositivo');
+  await find('Olá, Pessoa de teste.');
   console.log('PASS Android: onboarding confirmado com fixture sintética.');
 }
 for (const tab of ['Alimentação', 'Treinos', 'Evolução', 'Mais']) {

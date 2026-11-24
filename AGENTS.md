@@ -23,6 +23,16 @@
 
 ## Verificação e entrega
 
+- Preferência atual: desenvolver e validar somente em **celular físico**, usando Expo Go pelo QR code. Não iniciar emulador, AVD, Android Studio ou simulação automaticamente, inclusive para testes.
+- `npm start` / `npm run android` abrem somente o Metro para Expo Go; `npm run start:tunnel` é alternativa quando a rede local não funcionar. Manter um único servidor do projeto e o limite de um worker do Metro.
+- SDK/JDK e compilação nativa ficam restritos a pedidos de APK/build instalado; selecionar explicitamente o celular conectado. Roteiros antigos de emulador são históricos e não devem ser executados. Se não houver celular acessível, registrar aceite pendente sem abrir emulador.
+
+### Aprendizados de execução
+
+Use `npm.cmd start` como padrão quando celular e computador estiverem na mesma rede; use `npm.cmd run start:tunnel` para redes diferentes, isolamento de Wi-Fi ou falha de acesso local após conferir a conexão. O túnel exige internet nos dois dispositivos, pode ser mais lento e gera um endereço externo de desenvolvimento; mantenha link/QR privados e o SQLite no celular como fonte persistente. Ao trocar de modo, encerre o Metro anterior com `Ctrl+C` e escaneie o QR atual, preservando um único servidor e um worker; uma conexão por túnel já funcional não precisa ser trocada sem motivo. Preserve o cache e use instalação de dependências/limpeza de cache somente quando necessário; o passo a passo e a solução de falhas ficam no [README](README.md#desenvolvimento), e os aceites físicos em [TESTING.md](docs/TESTING.md).
+
+### Checagens de entrega
+
 - Use `npm` e preserve `package-lock.json`. No PowerShell com scripts bloqueados, use `npm.cmd`/`npx.cmd`.
 - Consulte documentação oficial e use `npx expo install` para compatibilidade nativa. Instale dependências conforme necessidade da fase.
 - Execute `npm run check`, `npm run build` e `npx expo install --check` ao fechar cada fase; acrescente testes pertinentes ao fluxo.

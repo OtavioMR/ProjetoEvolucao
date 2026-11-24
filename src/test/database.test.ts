@@ -3,51 +3,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 
-import { DatabaseQueue, type SqlConnection, type SqlValue } from '../core/database/connection.ts';
 import { migrateDatabase } from '../core/database/migrate.ts';
 import { ProfileRepository } from '../core/database/repositories/profile-repository.ts';
 import { syntheticSetup } from './fixtures.ts';
+import { connect } from './sqlite-test-connection.ts';
 
-function connect(path = ':memory:') {
-  const native = new DatabaseSync(path);
-  const db: SqlConnection = {
-    async execAsync(sql) {
-      native.exec(sql);
-    },
-    async runAsync(sql, ...params) {
-      const result = native.prepare(sql).run(...params);
-      return { changes: Number(result.changes), lastInsertRowId: Number(result.lastInsertRowid) };
-    },
-    async getFirstAsync<T>(sql: string, ...params: SqlValue[]) {
-      return (native.prepare(sql).get(...params) as T | undefined) ?? null;
-    },
-    async getAllAsync<T>(sql: string, ...params: SqlValue[]) {
-      return native.prepare(sql).all(...params) as T[];
-    },
-    async withTransactionAsync(work) {
-      native.exec('BEGIN');
-      try {
-        await work();
-        native.exec('COMMIT');
-      } catch (error) {
-        native.exec('ROLLBACK');
-        throw error;
-      }
-    },
-  };
-  const queue = new DatabaseQueue(db);
-  return {
-    db,
-    native,
-    queue,
-    repo: new ProfileRepository(queue, randomUUID, () => new Date('2026-04-08T02:50:00.000Z')),
-  };
-}
-
-test('migra banco vazio e reexecuta sem alterar perfil; apenas tabelas de fundação', async () => {
+test('migra banco vazio e reexecuta sem alterar perfil nem criar eventos', async () => {
   const { db, native, repo } = connect();
   try {
     await migrateDatabase(db);
@@ -61,7 +24,21 @@ test('migra banco vazio e reexecuta sem alterar perfil; apenas tabelas de funda�
     );
     assert.deepEqual(
       tables.map((t) => t.name),
-      ['goal_versions', 'preferences', 'profile', 'schema_migrations'],
+      [
+        'food_portions',
+        'foods',
+        'goal_versions',
+        'meal_items',
+        'meal_template_items',
+        'meal_templates',
+        'meals',
+        'preferences',
+        'profile',
+        'recipe_items',
+        'recipes',
+        'schema_migrations',
+        'water_entries',
+      ],
     );
     assert.equal(before?.goals[0]?.effectiveFromDate, '2026-04-07');
     assert.equal(
@@ -197,12 +174,12 @@ test('versão futura recusa inicialização sem alterar dados existentes', async
     await migrateDatabase(db);
     await repo.create(syntheticSetup());
     const before = await repo.read();
-    await db.runAsync('INSERT INTO schema_migrations VALUES (?, ?)', 2, '2026-04-01T00:00:00Z');
+    await db.runAsync('INSERT INTO schema_migrations VALUES (?, ?)', 3, '2026-04-01T00:00:00Z');
     await assert.rejects(migrateDatabase(db), /unsupported_schema_version/);
     assert.deepEqual(await repo.read(), before);
     assert.equal(
       (await db.getFirstAsync<{ n: number }>('SELECT count(*) n FROM schema_migrations'))?.n,
-      2,
+      3,
     );
   } finally {
     native.close();

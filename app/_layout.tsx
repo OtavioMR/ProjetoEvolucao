@@ -53,6 +53,12 @@ function Navigation() {
           <Stack.Screen name="settings/preferences" options={{ title: 'Preferências' }} />
           <Stack.Screen name="settings/privacy" options={{ title: 'Privacidade' }} />
           <Stack.Screen name="settings/goals" options={{ title: 'Referências' }} />
+          <Stack.Screen name="settings/backup" options={{ title: 'Backup local' }} />
+          <Stack.Screen name="hydration" options={{ title: 'Água' }} />
+          <Stack.Screen name="nutrition/catalog" options={{ title: 'Catálogo' }} />
+          <Stack.Screen name="nutrition/meal" options={{ title: 'Refeição' }} />
+          <Stack.Screen name="nutrition/recipes" options={{ title: 'Receitas' }} />
+          <Stack.Screen name="nutrition/templates" options={{ title: 'Modelos' }} />
         </Stack.Protected>
       </Stack>
     </>

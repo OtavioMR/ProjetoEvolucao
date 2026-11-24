@@ -10,7 +10,7 @@ export default function PrivacyScreen() {
       <Card>
         <Txt kind="heading">No armazenamento do aplicativo</Txt>
         <Txt kind="muted">
-          Perfil, preferências e referências são salvos em SQLite no espaço privado do app. O banco
+          Perfil, diário, água e referências são salvos em SQLite no espaço privado do app. O banco
           não possui criptografia própria. A proteção depende também do sistema operacional e do
           bloqueio do dispositivo.
         </Txt>
@@ -25,8 +25,8 @@ export default function PrivacyScreen() {
       </Card>
       <Notice>
         Sem sincronização, reinstalar o app ou perder o aparelho pode causar perda de dados. Backup
-        e restauração serão entregues na Fase 1, antes do uso como diário. Cópias exportadas
-        exigirão cuidado e não serão necessariamente criptografadas.
+        e restauração em JSON estão disponíveis em Mais → Backup local. Cópias exportadas exigem
+        cuidado e não são criptografadas pelo aplicativo.
       </Notice>
       <Txt kind="muted">
         O backup automático Android está desabilitado na configuração do aplicativo instalado. Expo

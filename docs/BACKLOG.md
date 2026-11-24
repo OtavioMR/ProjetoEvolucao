@@ -2,6 +2,12 @@
 
 Legenda: `[x]` implementado e verificado conforme evidência; `[ ]` pendente. Aceite em aparelho é separado do código entregue. Prioridade P0 = integridade/núcleo; P1 = fluxo obrigatório; P2 = expansão opcional.
 
+## Manutenção transversal — execução leve
+
+- [x] DEV-01 · Fluxo diário por QR code/Expo Go no celular físico; Metro com um worker e sem abertura automática de emulador.
+- [x] DEV-02 · Documentar instalação inicial, rotina diária, critérios Wi-Fi/túnel, troca com um único servidor, solução de falhas e preservação do cache no [README](../README.md#desenvolvimento); consolidar regras em [AGENTS.md](../AGENTS.md).
+- [ ] DEV-03 · Confirmar acesso pelo QR code no celular físico, registrando o modo de conexão e o resultado. Isso complementa os aceites F0-09/F1-10, que continuam pendentes; evidência antiga em emulador não equivale a esse aceite.
+
 ## Fase 0 — Fundação (implementada; revisão de aceite pendente)
 
 - [x] F0-01 · P0 · Configurar Expo/Router/TS estrito, npm lockfile, lint, formatador e scripts (§3, §11).
@@ -16,15 +22,17 @@ Legenda: `[x]` implementado e verificado conforme evidência; `[ ]` pendente. Ac
 
 ## Fase 1 — Diário e dashboard
 
-- [ ] F1-01 · P0 · Migração catálogo, porções, receitas/rendimento, modelos, refeições/itens e água; índices e constraints.
-- [ ] F1-02 · P1 · Catálogo inicial editável offline, favoritos/recentes, preparo/fonte; não inventar nutrientes.
-- [ ] F1-03 · P0 · Cálculo por referência/conversão explícita; cobertura por nutriente; zero distinto de desconhecido.
-- [ ] F1-04 · P1 · CRUD diário por data/refeição, modo descritivo, contexto/fome opcionais e snapshots imutáveis.
-- [ ] F1-05 · P1 · Duplicar/copiar e modelos com novos IDs, porções editáveis, templates nunca consumidos automaticamente.
-- [ ] F1-06 · P1 · Receitas básicas com ingredientes, rendimento final e estimativa parcial.
-- [ ] F1-07 · P1 · Água em um toque/customizada, edição retroativa, histórico, desfazer por ID; refrigerante fora do total de água.
-- [ ] F1-08 · P1 · Dashboard real com dia selecionável e atalhos filtrados, sem zeros fictícios nem indicadores ocultos.
-- [ ] F1-09 · P0 · Backup JSON versionado dos módulos entregues, prévia/validação, restauração por substituição confirmada, transação e rollback.
+Código da fase implementado; aceite completo Android ainda depende dos itens explicitados em [DELIVERY.md](DELIVERY.md). A revisão manual F0-09 continua pendente.
+
+- [x] F1-01 · P0 · Migração catálogo, porções, receitas/rendimento, modelos, refeições/itens e água; índices e constraints.
+- [x] F1-02 · P1 · Catálogo inicial editável offline, favoritos/recentes, preparo/fonte; não inventar nutrientes.
+- [x] F1-03 · P0 · Cálculo por referência/conversão explícita; cobertura por nutriente; zero distinto de desconhecido.
+- [x] F1-04 · P1 · CRUD diário por data/refeição, modo descritivo, contexto/fome opcionais e snapshots imutáveis.
+- [x] F1-05 · P1 · Duplicar/copiar e modelos com novos IDs, porções editáveis, templates nunca consumidos automaticamente.
+- [x] F1-06 · P1 · Receitas básicas com ingredientes, rendimento final e estimativa parcial.
+- [x] F1-07 · P1 · Água em um toque/customizada, edição retroativa, histórico, desfazer por ID; refrigerante fora do total de água.
+- [x] F1-08 · P1 · Dashboard real com dia selecionável e atalhos filtrados, sem zeros fictícios nem indicadores ocultos.
+- [x] F1-09 · P0 · Backup JSON versionado dos módulos entregues, prévia/validação, restauração por substituição confirmada, transação e rollback.
 - [ ] F1-10 · P0 · Testar 195 kcal, incompletude, edição/repetição independente, 1.050 mL, fuso às 23h50, offline e round-trip.
 
 ## Fase 2 — Treinos

@@ -15,6 +15,18 @@ export default function MoreScreen() {
         <Txt kind="muted">Perfil local · {snapshot!.profile.timezone}</Txt>
       </Card>
       <NavRow
+        title="Água e outras bebidas"
+        detail="Registros por dia, volumes rápidos e histórico"
+        href="/hydration"
+        icon="water-outline"
+      />
+      <NavRow
+        title="Backup local"
+        detail="Exportar JSON e restaurar com prévia e confirmação"
+        href="/settings/backup"
+        icon="download-outline"
+      />
+      <NavRow
         title="Perfil"
         detail="Nome, referências corporais e fuso"
         href="/settings/profile"
@@ -39,7 +51,7 @@ export default function MoreScreen() {
         icon="shield-checkmark-outline"
       />
       <Txt kind="muted">
-        Evolução 0.1.0 · Fase 0. Água e alimentação: Fase 1. Treinos: Fase 2. Sono, hábitos e
+        Evolução · Diário, água e backup local disponíveis. Treinos: Fase 2. Sono, hábitos e
         relatórios: Fase 3. Lembretes e distribuição: Fase 4.
       </Txt>
     </Screen>
