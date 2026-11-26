@@ -12,11 +12,14 @@ import {
 } from '../../domain/nutrition/nutrition';
 import { parseOptionalNumber } from '../../domain/profile/profile';
 import {
+  ActionSheetModal,
   Button,
   Card,
   Choice,
+  CompactRow,
   Field,
   Header,
+  IconButton,
   Notice,
   Screen,
   Toggle,
@@ -150,6 +153,7 @@ function CollectionEditor({
 export function CollectionsScreen({ isRecipe }: { isRecipe: boolean }) {
   const { data, diary, snapshot, recordsChanged, error, retry } = useDiary();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [menuTemplate, setMenuTemplate] = useState<MealTemplate | null>(null);
   const starterTemplates = useRef<MealTemplate[] | null>(null);
   const action = useAction();
   const edit = (value?: Recipe | MealTemplate) =>
@@ -162,6 +166,7 @@ export function CollectionsScreen({ isRecipe }: { isRecipe: boolean }) {
       notes: value && 'notes' in value ? value.notes : '',
       archived: value && 'archived' in value ? value.archived : false,
     });
+  const list = data ? (isRecipe ? data.catalog.recipes : data.catalog.templates) : [];
   return (
     <Screen insetTop={false}>
       <Header
@@ -224,24 +229,53 @@ export function CollectionsScreen({ isRecipe }: { isRecipe: boolean }) {
               }
             />
           ) : null}
-          {(isRecipe ? data.catalog.recipes : data.catalog.templates).map((value) => (
-            <Card key={value.id}>
-              <Txt kind="heading">
-                {value.name}
-                {'archived' in value && value.archived ? ' · arquivada' : ''}
-              </Txt>
-              <Txt kind="muted">
-                {value.items.length} ingrediente(s)/item(ns)
-                {'yieldQuantity' in value
-                  ? ` · rendimento ${value.yieldQuantity} ${'yieldUnit' in value && value.yieldUnit === 'g' ? 'g' : 'porção(ões)'}`
-                  : ''}
-              </Txt>
-              <Button secondary title={`Editar ${value.name}`} onPress={() => edit(value)} />
-              {!isRecipe ? (
-                <Button
-                  secondary
-                  title={`Excluir modelo ${value.name}`}
-                  onPress={() =>
+          {list.length ? (
+            <Card>
+              {list.map((value, index) => (
+                <CompactRow
+                  key={value.id}
+                  last={index === list.length - 1}
+                  title={`${value.name}${'archived' in value && value.archived ? ' · arquivada' : ''}`}
+                  subtitle={`${value.items.length} ingrediente(s)/item(ns)${'yieldQuantity' in value ? ` · rendimento ${value.yieldQuantity} ${'yieldUnit' in value && value.yieldUnit === 'g' ? 'g' : 'porção(ões)'}` : ''}`}
+                  onPress={() => edit(value)}
+                  right={
+                    !isRecipe ? (
+                      <IconButton
+                        icon="ellipsis-horizontal"
+                        label={`Ações para modelo ${value.name}`}
+                        busy={action.busy}
+                        onPress={() => setMenuTemplate(value as MealTemplate)}
+                      />
+                    ) : undefined
+                  }
+                />
+              ))}
+            </Card>
+          ) : (
+            <Notice>
+              {isRecipe ? 'Nenhuma receita cadastrada ainda.' : 'Nenhum modelo cadastrado ainda.'}
+            </Notice>
+          )}
+        </>
+      )}
+      <ActionSheetModal
+        visible={!!menuTemplate}
+        title={menuTemplate?.name ?? ''}
+        subtitle={menuTemplate ? `${menuTemplate.items.length} item(ns)` : undefined}
+        onClose={() => setMenuTemplate(null)}
+        actions={
+          menuTemplate
+            ? [
+                {
+                  label: 'Editar modelo',
+                  icon: 'create-outline',
+                  onPress: () => edit(menuTemplate),
+                },
+                {
+                  label: 'Excluir modelo',
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () =>
                     Alert.alert('Excluir modelo?', 'As refeições registradas serão preservadas.', [
                       { text: 'Manter', style: 'cancel' },
                       {
@@ -249,18 +283,16 @@ export function CollectionsScreen({ isRecipe }: { isRecipe: boolean }) {
                         style: 'destructive',
                         onPress: () =>
                           void action.run(async () => {
-                            await diary!.deleteTemplate(snapshot!.profile.id, value.id);
+                            await diary!.deleteTemplate(snapshot!.profile.id, menuTemplate.id);
                             recordsChanged();
                           }),
                       },
-                    ])
-                  }
-                />
-              ) : null}
-            </Card>
-          ))}
-        </>
-      )}
+                    ]),
+                },
+              ]
+            : []
+        }
+      />
     </Screen>
   );
 }

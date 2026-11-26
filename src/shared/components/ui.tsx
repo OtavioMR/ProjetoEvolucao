@@ -3,6 +3,7 @@ import { useRouter, type Href } from 'expo-router';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,7 +17,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { ComponentProps, PropsWithChildren } from 'react';
+import { useState, type ComponentProps, type PropsWithChildren, type ReactNode } from 'react';
 
 import { useTheme } from '../theme/theme';
 
@@ -77,23 +78,29 @@ export function Button({
   secondary = false,
   busy = false,
   icon,
+  compact = false,
+  accessibilityLabel,
 }: {
   title: string;
   onPress: () => void;
   secondary?: boolean;
   busy?: boolean;
   icon?: ComponentProps<typeof Ionicons>['name'];
+  compact?: boolean;
+  accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
   const color = secondary ? colors.text : colors.accentText;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: busy, busy }}
       disabled={busy}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        compact && styles.buttonCompact,
         {
           opacity: pressed || busy ? 0.65 : 1,
           backgroundColor: secondary ? colors.surface : colors.accent,
@@ -104,7 +111,7 @@ export function Button({
       {busy ? (
         <ActivityIndicator color={color} />
       ) : (
-        icon && <Ionicons name={icon} size={20} color={color} />
+        icon && <Ionicons name={icon} size={compact ? 18 : 20} color={color} />
       )}
       <Txt kind="label" style={{ color, flexShrink: 1 }}>
         {busy ? 'Salvando…' : title}
@@ -270,6 +277,232 @@ export function Header({
     </View>
   );
 }
+export function ExpandableSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: PropsWithChildren<{ title: string; summary?: string; defaultOpen?: boolean }>) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View
+      style={[styles.expandable, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((current) => !current)}
+        style={({ pressed }) => [styles.expandableHeader, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt kind="label">{title}</Txt>
+          {summary ? <Txt kind="muted">{summary}</Txt> : null}
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.secondary} />
+      </Pressable>
+      {open ? <View style={{ gap: 14 }}>{children}</View> : null}
+    </View>
+  );
+}
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[styles.segmented, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="button"
+            accessibilityLabel={option.label}
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.segmentedItem,
+              {
+                opacity: pressed ? 0.75 : 1,
+                backgroundColor: selected ? colors.accent : 'transparent',
+              },
+            ]}
+          >
+            <Txt
+              kind="label"
+              style={{ color: selected ? colors.accentText : colors.text, textAlign: 'center' }}
+            >
+              {option.label}
+            </Txt>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+export function IconButton({
+  icon,
+  label,
+  onPress,
+  busy = false,
+  destructive = false,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  destructive?: boolean;
+}) {
+  const { colors } = useTheme();
+  const color = destructive ? colors.error : colors.text;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: busy, busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.iconButton,
+        {
+          opacity: pressed || busy ? 0.65 : 1,
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      {busy ? (
+        <ActivityIndicator color={color} />
+      ) : (
+        <Ionicons name={icon} size={20} color={color} />
+      )}
+    </Pressable>
+  );
+}
+export function CompactRow({
+  title,
+  subtitle,
+  onPress,
+  right,
+  last = false,
+}: {
+  title: string;
+  subtitle?: string;
+  onPress?: () => void;
+  right?: ReactNode;
+  last?: boolean;
+}) {
+  const { colors } = useTheme();
+  const content = (
+    <View style={{ flex: 1, gap: 2 }}>
+      <Txt kind="label">{title}</Txt>
+      {subtitle ? <Txt kind="muted">{subtitle}</Txt> : null}
+    </View>
+  );
+  return (
+    <View
+      style={[
+        styles.compactRow,
+        !last && { borderBottomWidth: 1, borderBottomColor: colors.border },
+      ]}
+    >
+      {onPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+          onPress={onPress}
+          style={({ pressed }) => [
+            { flex: 1, minHeight: 48, justifyContent: 'center', opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          {content}
+        </Pressable>
+      ) : (
+        <View style={{ flex: 1, minHeight: 48, justifyContent: 'center' }}>{content}</View>
+      )}
+      {right}
+    </View>
+  );
+}
+export type ActionSheetOption = {
+  label: string;
+  icon?: ComponentProps<typeof Ionicons>['name'];
+  destructive?: boolean;
+  onPress: () => void;
+};
+export function ActionSheetModal({
+  visible,
+  title,
+  subtitle,
+  onClose,
+  actions,
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  actions: ActionSheetOption[];
+}) {
+  const { colors } = useTheme();
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fechar menu de ações"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          style={[
+            styles.modalSheet,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={{ gap: 4 }}>
+            <Txt kind="heading">{title}</Txt>
+            {subtitle ? <Txt kind="muted">{subtitle}</Txt> : null}
+          </View>
+          <View style={{ gap: 4 }}>
+            {actions.map((action) => {
+              const color = action.destructive ? colors.error : colors.text;
+              return (
+                <Pressable
+                  key={action.label}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  onPress={() => {
+                    onClose();
+                    action.onPress();
+                  }}
+                  style={({ pressed }) => [
+                    styles.modalAction,
+                    { opacity: pressed ? 0.7 : 1, borderColor: colors.border },
+                  ]}
+                >
+                  {action.icon ? <Ionicons name={action.icon} size={20} color={color} /> : null}
+                  <Txt kind="label" style={{ color, flex: 1 }}>
+                    {action.label}
+                  </Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button secondary title="Cancelar" onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
 export const styles = StyleSheet.create({
   screen: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 48, flexGrow: 1 },
   body: { fontSize: 16, lineHeight: 24 },
@@ -296,6 +529,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonCompact: {
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6,
+  },
   input: {
     minHeight: 52,
     borderWidth: 1,
@@ -321,5 +560,71 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderBottomWidth: 1,
+  },
+  expandable: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 14,
+  },
+  expandableHeader: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  segmented: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  segmentedItem: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  iconButton: {
+    minWidth: 48,
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactRow: {
+    minHeight: 56,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    padding: 16,
+  },
+  modalSheet: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 20,
+    gap: 16,
+  },
+  modalAction: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 12,
   },
 });

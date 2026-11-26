@@ -7,11 +7,14 @@ import { waterSchema, type WaterEntry } from '../../domain/nutrition/nutrition';
 import { parseOptionalNumber } from '../../domain/profile/profile';
 import { useApp } from '../../shared/app-provider';
 import {
+  ActionSheetModal,
   Button,
   Card,
   Choice,
+  CompactRow,
   Field,
   Header,
+  IconButton,
   Notice,
   Screen,
   Txt,
@@ -30,7 +33,9 @@ export function WaterQuickActions() {
         {snapshot!.preferences.quickWaterAmounts.map((amount, index) => (
           <Button
             key={`${amount}-${index}`}
-            title={`+ ${numberText(amount)} mL de água`}
+            compact
+            title={`+ ${numberText(amount)} mL`}
+            accessibilityLabel={`Adicionar ${numberText(amount)} mL de água`}
             busy={action.busy}
             onPress={() =>
               void action.run(async () => {
@@ -172,6 +177,7 @@ function WaterEditor({ initial, close }: { initial: WaterEntry; close: () => voi
 export function HydrationScreen() {
   const { data, snapshot, selectedDate, diary, recordsChanged, error, retry } = useDiary();
   const [editing, setEditing] = useState<WaterEntry | null>(null);
+  const [menuEntry, setMenuEntry] = useState<WaterEntry | null>(null);
   const action = useAction();
   const total = data?.water
     .filter((w) => w.beverage === 'water')
@@ -202,7 +208,8 @@ export function HydrationScreen() {
         <WaterQuickActions />
       </Card>
       <Button
-        title="Registrar volume, data ou outra bebida"
+        secondary
+        title="Outro volume ou bebida"
         onPress={() => {
           const timezone = snapshot!.profile.timezone;
           setEditing({
@@ -222,47 +229,78 @@ export function HydrationScreen() {
       {action.message ? <Notice error={action.failed}>{action.message}</Notice> : null}
       {!data ? (
         <LoadState error={error} retry={retry} />
+      ) : data.water.length ? (
+        <Card>
+          <Txt kind="heading">Registros do dia</Txt>
+          {data.water.map((w, index) => {
+            const time = localTimeAt(new Date(w.occurredAt), w.timezone);
+            return (
+              <CompactRow
+                key={w.id}
+                last={index === data.water.length - 1}
+                title={`${numberText(w.amountMl)} mL · ${w.beverage === 'water' ? 'Água' : 'Outra bebida'}`}
+                subtitle={w.notes ? `${time} · ${w.notes}` : time}
+                onPress={() => setEditing(w)}
+                right={
+                  <IconButton
+                    icon="ellipsis-horizontal"
+                    label={`Ações da bebida de ${time}`}
+                    busy={action.busy}
+                    onPress={() => setMenuEntry(w)}
+                  />
+                }
+              />
+            );
+          })}
+        </Card>
       ) : (
-        data.water.map((w) => (
-          <Card key={w.id}>
-            <Txt kind="label">
-              {numberText(w.amountMl)} mL · {w.beverage === 'water' ? 'Água' : 'Outra bebida'}
-            </Txt>
-            <Txt kind="muted">
-              {localTimeAt(new Date(w.occurredAt), w.timezone)} · {w.timezone}
-            </Txt>
-            {w.notes ? <Txt>{w.notes}</Txt> : null}
-            <Button
-              secondary
-              title={`Editar bebida de ${localTimeAt(new Date(w.occurredAt), w.timezone)}`}
-              onPress={() => setEditing(w)}
-            />
-            <Button
-              secondary
-              title="Excluir esta bebida"
-              busy={action.busy}
-              onPress={() =>
-                Alert.alert(
-                  'Excluir registro de bebida?',
-                  'Somente este lançamento será removido.',
-                  [
-                    { text: 'Manter', style: 'cancel' },
-                    {
-                      text: 'Excluir',
-                      style: 'destructive',
-                      onPress: () =>
-                        void action.run(async () => {
-                          await diary!.deleteWater(snapshot!.profile.id, w.id);
-                          recordsChanged();
-                        }),
-                    },
-                  ],
-                )
-              }
-            />
-          </Card>
-        ))
+        <Notice>Nenhuma bebida registrada nesta data.</Notice>
       )}
+      <ActionSheetModal
+        visible={!!menuEntry}
+        title={
+          menuEntry
+            ? `${numberText(menuEntry.amountMl)} mL · ${menuEntry.beverage === 'water' ? 'Água' : 'Outra bebida'}`
+            : ''
+        }
+        subtitle={
+          menuEntry ? localTimeAt(new Date(menuEntry.occurredAt), menuEntry.timezone) : undefined
+        }
+        onClose={() => setMenuEntry(null)}
+        actions={
+          menuEntry
+            ? [
+                {
+                  label: 'Editar bebida',
+                  icon: 'create-outline',
+                  onPress: () => setEditing(menuEntry),
+                },
+                {
+                  label: 'Excluir esta bebida',
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () =>
+                    Alert.alert(
+                      'Excluir registro de bebida?',
+                      'Somente este lançamento será removido.',
+                      [
+                        { text: 'Manter', style: 'cancel' },
+                        {
+                          text: 'Excluir',
+                          style: 'destructive',
+                          onPress: () =>
+                            void action.run(async () => {
+                              await diary!.deleteWater(snapshot!.profile.id, menuEntry.id);
+                              recordsChanged();
+                            }),
+                        },
+                      ],
+                    ),
+                },
+              ]
+            : []
+        }
+      />
     </Screen>
   );
 }

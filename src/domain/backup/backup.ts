@@ -8,7 +8,28 @@ import {
   itemSchema,
   waterSchema,
 } from '../nutrition/nutrition.ts';
+import {
+  cardioEntrySchema,
+  exerciseSchema,
+  sessionExerciseSchema,
+  templateExerciseSchema,
+  trainingDayOverrideSchema,
+  trainingPlanVersionSchema,
+  workoutSessionSchema,
+  workoutSetSchema,
+  workoutTemplateSchema,
+} from '../training/training.ts';
+import {
+  bodyMilestoneSchema,
+  habitLogSchema,
+  habitSchema,
+  measurementEntrySchema,
+  sleepEntrySchema,
+  weeklyReviewSchema,
+  weightEntrySchema,
+} from '../evolution/evolution.ts';
 import { goalSchema, goalUnits, preferencesSchema, profileSchema } from '../profile/profile.ts';
+import { reminderSchema } from '../reminders/reminders.ts';
 
 export const backupLimit = 10 * 1024 * 1024;
 const id = z.uuid();
@@ -87,33 +108,193 @@ export const tableSchemas = {
     notes: z.string().max(2000),
     ...meta,
   }),
+  exercises: z.strictObject(document),
+  workout_templates: z.strictObject(document),
+  workout_template_exercises: z.strictObject({
+    id,
+    parent_id: id,
+    position: z.number().int().nonnegative(),
+    exercise_id: id,
+    data: z.string(),
+  }),
+  training_plan_versions: z.strictObject({
+    ...document,
+    effective_from_date: z.string(),
+    effective_to_date: z.string().nullable(),
+  }),
+  training_day_overrides: z.strictObject({
+    id,
+    profile_id: id,
+    local_date: z.string(),
+    template_id: id.nullable(),
+    kind: z.enum(['rest', 'swap']),
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  workout_sessions: z.strictObject({
+    ...document,
+    template_id: id.nullable(),
+    local_date: z.string(),
+    started_at: stamp,
+    completed_at: stamp.nullable(),
+    timezone_at_entry: z.string(),
+    status: z.enum(['active', 'completed', 'cancelled']),
+  }),
+  workout_session_exercises: z.strictObject({
+    id,
+    session_id: id,
+    position: z.number().int().nonnegative(),
+    exercise_id: id.nullable(),
+    data: z.string(),
+  }),
+  workout_sets: z.strictObject({
+    id,
+    session_exercise_id: id,
+    position: z.number().int().nonnegative(),
+    data: z.string(),
+  }),
+  cardio_entries: z.strictObject({
+    ...document,
+    session_id: id.nullable(),
+    local_date: z.string(),
+    occurred_at: stamp,
+    timezone_at_entry: z.string(),
+    duration_minutes: numeric,
+    distance_km: nullableNumber,
+  }),
+  weight_entries: z.strictObject({
+    id,
+    profile_id: id,
+    local_date: z.string(),
+    occurred_at: stamp,
+    timezone_at_entry: z.string(),
+    weight_kg: numeric,
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  measurement_entries: z.strictObject({
+    id,
+    profile_id: id,
+    local_date: z.string(),
+    occurred_at: stamp,
+    timezone_at_entry: z.string(),
+    metric: z.string(),
+    value_cm: numeric,
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  body_milestones: z.strictObject({
+    id,
+    profile_id: id,
+    title: z.string(),
+    target_weight_kg: numeric,
+    achieved_at: stamp.nullable(),
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  sleep_entries: z.strictObject({
+    id,
+    profile_id: id,
+    start_at: stamp,
+    end_at: stamp,
+    wake_local_date: z.string(),
+    timezone_at_entry: z.string(),
+    is_nap: z.union([z.literal(0), z.literal(1)]),
+    quality: z.number().int().min(1).max(5).nullable(),
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  habits: z.strictObject({
+    ...document,
+    archived_at: stamp.nullable(),
+  }),
+  habit_logs: z.strictObject({
+    id,
+    profile_id: id,
+    habit_id: id,
+    local_date: z.string(),
+    status: z.enum(['done', 'not_done', 'not_applicable']),
+    notes: z.string().max(1000),
+    ...meta,
+  }),
+  weekly_reviews: z.strictObject({
+    ...document,
+    week_start_date: z.string(),
+  }),
+  reminders: z.strictObject({
+    id,
+    profile_id: id,
+    category: z.string(),
+    enabled: z.union([z.literal(0), z.literal(1)]),
+    local_time: z.string(),
+    weekdays: z.string(),
+    quiet_start: z.string().nullable(),
+    quiet_end: z.string().nullable(),
+    platform_notification_ids: z.string(),
+    ...meta,
+  }),
 };
 export type BackupTable = keyof typeof tableSchemas;
 export const backupTables = Object.keys(tableSchemas) as BackupTable[];
+const phase2Tables: BackupTable[] = [
+  'exercises',
+  'workout_templates',
+  'workout_template_exercises',
+  'training_plan_versions',
+  'training_day_overrides',
+  'workout_sessions',
+  'workout_session_exercises',
+  'workout_sets',
+  'cardio_entries',
+];
+const phase3Tables: BackupTable[] = [
+  'weight_entries',
+  'measurement_entries',
+  'body_milestones',
+  'sleep_entries',
+  'habits',
+  'habit_logs',
+  'weekly_reviews',
+];
+const phase4Tables: BackupTable[] = ['reminders'];
 export type BackupRow = Record<string, string | number | null>;
 const envelopeSchema = z.strictObject({
   format: z.literal('evolucao-local'),
   formatVersion: z.literal(1),
-  schemaVersion: z.literal(2),
+  schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   exportedAt: stamp,
   tables: z.record(
     z.string(),
     z.array(z.record(z.string(), z.union([z.string(), numeric, z.null()]))),
   ),
 });
-export type Backup = z.infer<typeof envelopeSchema> & { tables: Record<BackupTable, BackupRow[]> };
+export type Backup = Omit<z.infer<typeof envelopeSchema>, 'schemaVersion'> & {
+  schemaVersion: 5;
+  tables: Record<BackupTable, BackupRow[]>;
+};
 
 /** Validação acontece antes de qualquer escrita e novamente antes da substituição. */
 export function validateBackup(input: unknown): Backup {
   const data = envelopeSchema.parse(input);
+  const excludedTables =
+    data.schemaVersion === 2
+      ? [...phase2Tables, ...phase3Tables, ...phase4Tables]
+      : data.schemaVersion === 3
+        ? [...phase3Tables, ...phase4Tables]
+        : data.schemaVersion === 4
+          ? phase4Tables
+          : [];
+  const requiredTables = backupTables.filter((t) => !excludedTables.includes(t));
   if (
-    Object.keys(data.tables).length !== backupTables.length ||
-    backupTables.some((t) => !data.tables[t])
+    Object.keys(data.tables).length !== requiredTables.length ||
+    requiredTables.some((t) => !data.tables[t])
   )
     throw new Error('Tabelas do backup incompatíveis.');
-  if (Object.values(data.tables).reduce((n, rows) => n + rows.length, 0) > 20000)
+  const normalizedTables = { ...data.tables } as Record<BackupTable, BackupRow[]>;
+  for (const t of excludedTables) normalizedTables[t] = [];
+  if (Object.values(normalizedTables).reduce((n, rows) => n + rows.length, 0) > 20000)
     throw new Error('Backup excede 20.000 registros.');
-  const tables = data.tables as Record<BackupTable, BackupRow[]>;
+  const tables = normalizedTables;
   for (const table of backupTables) {
     const keys = new Set<string>();
     for (const row of tables[table]) {
@@ -263,7 +444,208 @@ export function validateBackup(input: unknown): Backup {
       beverage: w.beverage_type,
       notes: w.notes,
     });
-  return { ...data, tables };
+  for (const ex of tables.exercises) {
+    const parsed = exerciseSchema.parse(JSON.parse(String(ex.data)));
+    if (parsed.id !== ex.id) throw new Error('ID de exercício inválido.');
+  }
+  for (const wt of tables.workout_templates) {
+    const items = readItems('workout_template_exercises', wt.id);
+    const parsed = workoutTemplateSchema.parse({
+      ...JSON.parse(String(wt.data)),
+      exercises: items,
+    });
+    if (parsed.id !== wt.id) throw new Error('ID de ficha inválido.');
+  }
+  for (const item of tables.workout_template_exercises) {
+    const parsed = templateExerciseSchema.parse(JSON.parse(String(item.data)));
+    if (
+      !exists('workout_templates', item.parent_id) ||
+      !exists('exercises', item.exercise_id) ||
+      parsed.id !== item.id ||
+      parsed.exerciseId !== item.exercise_id
+    )
+      throw new Error('Item de ficha inválido.');
+  }
+  const plans = tables.training_plan_versions.map((pv) => {
+    const parsed = trainingPlanVersionSchema.parse({
+      ...JSON.parse(String(pv.data)),
+      effectiveFromDate: pv.effective_from_date,
+      effectiveToDate: pv.effective_to_date,
+    });
+    if (parsed.id !== pv.id) throw new Error('ID de agenda inválido.');
+    if (parsed.effectiveToDate && parsed.effectiveToDate < parsed.effectiveFromDate)
+      throw new Error('Vigência de agenda inválida.');
+    return parsed;
+  });
+  for (const [i, plan] of plans.entries()) {
+    if (
+      plans
+        .slice(i + 1)
+        .some(
+          (other) =>
+            other.effectiveFromDate <= (plan.effectiveToDate ?? '9999-12-31') &&
+            (other.effectiveToDate ?? '9999-12-31') >= plan.effectiveFromDate,
+        )
+    )
+      throw new Error('Agendas sobrepostas.');
+  }
+  const overrideDates = new Set<string>();
+  for (const ov of tables.training_day_overrides) {
+    trainingDayOverrideSchema.parse({
+      id: ov.id,
+      localDate: ov.local_date,
+      kind: ov.kind,
+      templateId: ov.template_id,
+      notes: ov.notes,
+    });
+    if (ov.template_id && !exists('workout_templates', ov.template_id))
+      throw new Error('Ficha ausente na exceção de agenda.');
+    if (overrideDates.has(String(ov.local_date))) throw new Error('Exceção de dia duplicada.');
+    overrideDates.add(String(ov.local_date));
+  }
+  let activeSessions = 0;
+  for (const ws of tables.workout_sessions) {
+    if (ws.status === 'active') activeSessions += 1;
+    if (activeSessions > 1) throw new Error('Mais de uma sessão ativa no backup.');
+    if (ws.template_id && !exists('workout_templates', ws.template_id))
+      throw new Error('Ficha ausente na sessão.');
+    const exRows = tables.workout_session_exercises
+      .filter((r) => r.session_id === ws.id)
+      .sort((a, b) => Number(a.position) - Number(b.position));
+    if (exRows.some((r, i) => r.position !== i)) throw new Error('Ordem de exercícios inválida.');
+    const exercises = exRows.map((er) => {
+      if (er.exercise_id && !exists('exercises', er.exercise_id))
+        throw new Error('Exercício ausente na sessão.');
+      const setRows = tables.workout_sets
+        .filter((sr) => sr.session_exercise_id === er.id)
+        .sort((a, b) => Number(a.position) - Number(b.position));
+      if (setRows.some((r, i) => r.position !== i)) throw new Error('Ordem de séries inválida.');
+      const sets = setRows.map((sr) => workoutSetSchema.parse(JSON.parse(String(sr.data))));
+      return sessionExerciseSchema.parse({
+        ...JSON.parse(String(er.data)),
+        exerciseId: er.exercise_id,
+        sets,
+      });
+    });
+    const parsed = workoutSessionSchema.parse({
+      ...JSON.parse(String(ws.data)),
+      id: ws.id,
+      templateId: ws.template_id,
+      localDate: ws.local_date,
+      startedAt: ws.started_at,
+      completedAt: ws.completed_at,
+      timezoneAtEntry: ws.timezone_at_entry,
+      status: ws.status,
+      exercises,
+    });
+    if (parsed.id !== ws.id) throw new Error('ID de sessão inválido.');
+  }
+  for (const ce of tables.cardio_entries) {
+    if (ce.session_id && !exists('workout_sessions', ce.session_id))
+      throw new Error('Sessão ausente no cardio.');
+    const parsed = cardioEntrySchema.parse({
+      ...JSON.parse(String(ce.data)),
+      id: ce.id,
+      sessionId: ce.session_id,
+      localDate: ce.local_date,
+      occurredAt: ce.occurred_at,
+      timezoneAtEntry: ce.timezone_at_entry,
+      durationMinutes: ce.duration_minutes,
+      distanceKm: ce.distance_km,
+    });
+    if (parsed.id !== ce.id) throw new Error('ID de cardio inválido.');
+  }
+  for (const w of tables.weight_entries) {
+    weightEntrySchema.parse({
+      id: w.id,
+      localDate: w.local_date,
+      occurredAt: w.occurred_at,
+      timezoneAtEntry: w.timezone_at_entry,
+      weightKg: w.weight_kg,
+      notes: w.notes,
+    });
+  }
+  for (const m of tables.measurement_entries) {
+    measurementEntrySchema.parse({
+      id: m.id,
+      localDate: m.local_date,
+      occurredAt: m.occurred_at,
+      timezoneAtEntry: m.timezone_at_entry,
+      metric: m.metric,
+      valueCm: m.value_cm,
+      notes: m.notes,
+    });
+  }
+  for (const bm of tables.body_milestones) {
+    bodyMilestoneSchema.parse({
+      id: bm.id,
+      title: bm.title,
+      targetWeightKg: bm.target_weight_kg,
+      achievedAt: bm.achieved_at,
+      notes: bm.notes,
+    });
+  }
+  for (const s of tables.sleep_entries) {
+    sleepEntrySchema.parse({
+      id: s.id,
+      startAt: s.start_at,
+      endAt: s.end_at,
+      wakeLocalDate: s.wake_local_date,
+      timezoneAtEntry: s.timezone_at_entry,
+      isNap: s.is_nap === 1,
+      quality: s.quality,
+      notes: s.notes,
+    });
+  }
+  for (const h of tables.habits) {
+    const parsed = habitSchema.parse({
+      ...JSON.parse(String(h.data)),
+      archivedAt: h.archived_at,
+    });
+    if (parsed.id !== h.id) throw new Error('ID de hábito inválido.');
+  }
+  const habitLogKeys = new Set<string>();
+  for (const hl of tables.habit_logs) {
+    if (!exists('habits', hl.habit_id)) throw new Error('Hábito ausente no registro.');
+    const key = `${hl.habit_id}:${hl.local_date}`;
+    if (habitLogKeys.has(key)) throw new Error('Registro de hábito duplicado no mesmo dia.');
+    habitLogKeys.add(key);
+    habitLogSchema.parse({
+      id: hl.id,
+      habitId: hl.habit_id,
+      localDate: hl.local_date,
+      status: hl.status,
+      notes: hl.notes,
+    });
+  }
+  const reviewWeeks = new Set<string>();
+  for (const wr of tables.weekly_reviews) {
+    const weekKey = String(wr.week_start_date);
+    if (reviewWeeks.has(weekKey)) throw new Error('Revisão semanal duplicada.');
+    reviewWeeks.add(weekKey);
+    const parsed = weeklyReviewSchema.parse(JSON.parse(String(wr.data)));
+    if (parsed.id !== wr.id || parsed.weekStartDate !== wr.week_start_date) {
+      throw new Error('Revisão semanal inconsistente.');
+    }
+  }
+  const reminderCategories = new Set<string>();
+  for (const rem of tables.reminders) {
+    const category = String(rem.category);
+    if (reminderCategories.has(category)) throw new Error('Categoria de lembrete duplicada.');
+    reminderCategories.add(category);
+    const parsed = reminderSchema.parse({
+      id: rem.id,
+      category: rem.category,
+      enabled: rem.enabled === 1,
+      localTime: rem.local_time,
+      weekdays: JSON.parse(String(rem.weekdays)),
+      quietStart: rem.quiet_start,
+      quietEnd: rem.quiet_end,
+      platformNotificationIds: JSON.parse(String(rem.platform_notification_ids)),
+    });
+    if (parsed.id !== rem.id) throw new Error('ID de lembrete inválido.');
+  }
+  return { ...data, schemaVersion: 5, tables };
 }
 
 export function parseBackup(text: string): Backup {

@@ -62,4 +62,12 @@ Os testes automáticos de SQLite usam exclusivamente arquivos temporários reais
 
 ## Gates das próximas fases
 
-Fase 1 mantém seus aceites Android ainda pendentes em [DELIVERY.md](DELIVERY.md); Fase 2 adicionará recuperação de sessão/timer; Fase 3, médias/sono/cobertura; Fase 4, regressão completa e distribuição. Os casos estão enumerados no [backlog](BACKLOG.md). Não marcar esses gates como feitos por executar apenas testes no host.
+Fase 1, Fase 2 e Fase 3 mantêm seus aceites Android pendentes em [DELIVERY.md](DELIVERY.md). Os casos estão enumerados no [backlog](BACKLOG.md). Não marcar esses gates como feitos por executar apenas testes no host.
+
+## Fase 4: backup v5, CSV, lembretes, exclusão total e APK
+
+- Em **Mais → Backup local e CSV**, exportar backup JSON (`schemaVersion: 5`), selecionar o arquivo para prévia e conferir contagens de todos os módulos; validar rejeição de arquivo inválido/versão futura.
+- Exportar CSV de pelo menos um módulo com observação iniciada por `=SUM(A1)` e verificar escaping (`'=SUM(A1)`) e acentuação UTF-8.
+- Em **Mais → Lembretes locais**, ativar uma categoria e testar concessão e recusa de permissão; confirmar que textos são neutros (sem peso, calorias ou fotos) e que o app continua funcional se a permissão for negada.
+- Em instalação de teste (sem dados pessoais reais), testar **Mais → Privacidade → Exclusão total** digitando `APAGAR TUDO` e confirmar retorno ao onboarding com base zerada.
+- Com celular físico conectado e SDK/JDK configurados, gerar e instalar APK release (`npm.cmd run android:build`) e validar cold start em modo avião.

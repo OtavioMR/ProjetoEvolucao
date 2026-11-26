@@ -20,8 +20,8 @@ FK ligada em cada inicialização; WAL em plataformas nativas, timeout de ocupa�
 ## Evolução prevista (não criada antecipadamente)
 
 - Fase 1: implementada pela [migração 002](../src/core/database/migrations/002-diary.ts), detalhada abaixo.
-- Fase 2: biblioteca, fichas/exercícios, planos/agenda versionados, sessões/exercícios/séries e cardio. Um índice parcial garante uma sessão ativa por perfil; cascatas apenas em filhos exclusivos. Timer absoluto persistido; cardio desvinculado é preservado.
-- Fase 3: peso, medidas, sono, hábitos/logs e revisões; unicidade hábito/data e revisão/semana. Tendências escolhem última pesagem diária; sono soma união de intervalos.
+- Fase 2: implementada pela [migração 003](../src/core/database/migrations/003-training.ts), detalhada abaixo. Um índice parcial garante uma sessão ativa por perfil; cascatas apenas em filhos exclusivos. Timer absoluto persistido; cardio desvinculado é preservado.
+- Fase 3: implementada pela [migração 004](../src/core/database/migrations/004-evolution.ts), detalhada abaixo. Peso, medidas, marcos, sono, hábitos/logs e revisões; unicidade hábito/data e revisão/semana. Tendências escolhem última pesagem diária; sono soma união de intervalos.
 - Fase 4: lembretes reais e eventuais metadados de exportação. Fotos ficam fora do núcleo e exigem formato específico de backup se implementadas.
 
 Todas as fases acrescentam índices nas FK e consultas por perfil/data, validações, testes de upgrade e rollback. Restaurar backup exigirá prévia e confirmação antes de substituição transacional; não há restauração na Fase 0.
@@ -40,4 +40,37 @@ Os [schemas de domínio](../src/domain/nutrition/nutrition.ts) definem os docume
 
 Cada snapshot de item guarda nome/preparo, quantidade/unidade ou descrição sem pesar, referência e nutrientes da referência, fonte, totais conhecidos e completude por nutriente. Valores desconhecidos são `null`. A soma da receita mantém completude parcial mesmo quando existe subtotal conhecido. Nenhuma conversão é inferida quando falta equivalência. IDs de porção em snapshots são referências históricas e podem sobreviver à edição das porções do catálogo.
 
-O backup preserva IDs, timestamps, referências e snapshots integralmente. [Validação do formato](../src/domain/backup/backup.ts) confere tabelas e colunas permitidas, perfil único, unicidade, relações, ordem dos filhos, datas/fusos e vigências/unidades das metas. A versão de migração instalada continua gerenciada pelo aplicativo; o backup não executa DDL. Testes reais em arquivo cobrem upgrade 1→2, rollback, round-trip e rejeição de versões futuras.
+O backup preserva IDs, timestamps, referências e snapshots integralmente. [Validação do formato](../src/domain/backup/backup.ts) confere tabelas e colunas permitidas, perfil único, unicidade, relações, ordem dos filhos, datas/fusos e vigências/unidades das metas. A versão de migração instalada continua gerenciada pelo aplicativo; o backup não executa DDL. Testes reais em arquivo cobrem upgrade 1→2 e 2→3, rollback, round-trip e rejeição de versões futuras.
+
+## Fase 2 — schema 3
+
+| Tabelas                                            | Estrutura e comportamento                                                                                                                                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exercises`, `workout_templates`                   | UUID PK, `profile_id` FK, documento JSON validado e timestamps UTC. Exercícios e fichas podem ser arquivados sem afetar snapshots históricos.                                                                                    |
+| `workout_template_exercises`                       | UUID PK, `parent_id` FK com cascata, posição única por ficha, `exercise_id` FK e snapshot/metas de séries e reps.                                                                                                                |
+| `training_plan_versions`, `training_day_overrides` | Agenda versionada por vigência civil com triggers de não sobreposição (`training_plan_overlap`), e exceções pontuais por `(profile_id, local_date)` para descanso (`rest`) ou troca (`swap`).                                    |
+| `workout_sessions`                                 | UUID PK, `profile_id` FK, `template_id` (`ON DELETE SET NULL`), `local_date`, `started_at`, `completed_at`, `timezone_at_entry`, `status` e índice parcial `workout_sessions_one_active` garantindo uma sessão ativa por perfil. |
+| `workout_session_exercises`, `workout_sets`        | Snapshots independentes da biblioteca/ficha e séries individuais persistidas incrementalmente com carga, repetições, RIR/RPE, tipo e status (`pending`/`completed`/`skipped`).                                                   |
+| `cardio_entries`                                   | UUID PK, `profile_id` FK, `session_id` (`ON DELETE SET NULL`), data/UTC/fuso, duração, distância opcional e documento JSON. Desvincular ou excluir sessão preserva o cardio.                                                     |
+
+Os [schemas de domínio](../src/domain/training/training.ts) definem cálculos puros de volume (`kg·reps`), timer absoluto por timestamp UTC (`targetEndAt`), recordes comparáveis por mesma convenção de carga e resumo diário de cardio sem duplicidade. O backup exporta `schemaVersion: 3` na Fase 2.
+
+## Fase 3 — schema 4
+
+| Tabelas                                 | Estrutura e comportamento                                                                                                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weight_entries`, `measurement_entries` | UUID PK, `profile_id` FK, `local_date`, `occurred_at`, `timezone_at_entry` e valores positivos em kg/cm. Séries diárias usam a última observação do dia.                                     |
+| `body_milestones`                       | UUID PK, `profile_id` FK, título, peso alvo e notas opcionais.                                                                                                                               |
+| `sleep_entries`                         | UUID PK, `profile_id` FK, `start_at`/`end_at` UTC (`end_at > start_at`), `wake_local_date`, `is_nap` e `quality` (1–5 opcional). Duração calculada pela união de intervalos não sobrepostos. |
+| `habits`, `habit_logs`                  | Hábitos configuráveis com `archived_at` preservando histórico; `habit_logs` com `UNIQUE(habit_id, local_date)` e estados `done`/`not_done`/`not_applicable`.                                 |
+| `weekly_reviews`                        | UUID PK, `profile_id` FK, `week_start_date` com `UNIQUE(profile_id, week_start_date)` e documento JSON validado com notas da revisão.                                                        |
+
+Os [schemas de domínio](../src/domain/evolution/evolution.ts) definem médias móveis com cobertura, cálculo de IMC opcional, união de intervalos de sono, calendário mensal e formatação de resumo copiável. O backup exporta `schemaVersion: 4` (28 tabelas) e aceita importação retroativa de `schemaVersion: 2` e `3`.
+
+## Fase 4 — schema 5
+
+| Tabela      | Estrutura e comportamento                                                                                                                                                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reminders` | UUID PK, `profile_id` FK com cascata, `category` (`water`/`meal`/`training`/`sleep`/`weekly_review`), `enabled` (0/1, padrão 0), `local_time`, `weekdays` JSON, `quiet_start`/`quiet_end` opcionais, `platform_notification_ids` JSON e `UNIQUE(profile_id, category)`. |
+
+O backup passa a exportar `schemaVersion: 5` (29 tabelas) e aceita importação retroativa de `schemaVersion: 2`, `3` e `4`, rejeitando versões `> 5`. A exclusão total (`eraseAllData`) remove todas as linhas das 29 tabelas em transação reversa de dependência.

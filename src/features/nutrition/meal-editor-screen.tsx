@@ -7,7 +7,16 @@ import type { Catalog } from '../../core/database/repositories/diary-repository'
 import { eventInstant, localTimeAt } from '../../core/date-time/event-time';
 import { mealSchema, type Meal } from '../../domain/nutrition/nutrition';
 import { parseOptionalNumber } from '../../domain/profile/profile';
-import { Button, Choice, Field, Header, Notice, Screen, Txt } from '../../shared/components/ui';
+import {
+  Button,
+  Choice,
+  ExpandableSection,
+  Field,
+  Header,
+  Notice,
+  Screen,
+  Txt,
+} from '../../shared/components/ui';
 import { LoadState, NutritionSummary } from '../diary/components';
 import { useAction, useDiary } from '../diary/use-diary';
 import { ItemBuilder } from './item-builder';
@@ -33,11 +42,6 @@ function MealForm({ initial, catalog, copy }: { initial: Meal; catalog: Catalog;
   const values = useWatch({ control, compute: (fields) => fields });
   return (
     <>
-      <Field
-        label="Título da refeição"
-        value={values.title}
-        onChangeText={(v) => setValue('title', v)}
-      />
       <Txt kind="label">Tipo de refeição</Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {[...new Set([...snapshot!.preferences.meals.map((m) => m.name), 'Outras', mealType])].map(
@@ -52,23 +56,15 @@ function MealForm({ initial, catalog, copy }: { initial: Meal; catalog: Catalog;
         )}
       </View>
       <Field
-        label="Data da refeição (AAAA-MM-DD)"
-        value={values.date}
-        onChangeText={(v) => setValue('date', v)}
+        label="Título da refeição"
+        value={values.title}
+        onChangeText={(v) => setValue('title', v)}
       />
-      <Field
-        label="Horário da refeição (HH:mm)"
-        value={values.time}
-        onChangeText={(v) => setValue('time', v)}
-        keyboardType="numbers-and-punctuation"
-      />
-      <Txt kind="muted">
-        Fuso deste registro: {initial.timezone}. Ao corrigir a data, o instante UTC é recalculado
-        junto com o dia civil.
-      </Txt>
       {catalog.templates.length > 0 ? (
-        <>
-          <Txt kind="heading">Adicionar itens de um modelo</Txt>
+        <ExpandableSection
+          title={`Usar um modelo (${catalog.templates.length})`}
+          summary="Adiciona os itens salvos para você revisar"
+        >
           {catalog.templates.map((t) => (
             <Button
               key={t.id}
@@ -79,40 +75,69 @@ function MealForm({ initial, catalog, copy }: { initial: Meal; catalog: Catalog;
               }
             />
           ))}
-        </>
+        </ExpandableSection>
       ) : null}
       <ItemBuilder catalog={catalog} items={items} onChange={setItems} />
       <NutritionSummary items={items} />
-      <Field
-        label="Fome antes (0 a 10, opcional)"
-        value={values.hunger}
-        onChangeText={(v) => setValue('hunger', v)}
-        keyboardType="number-pad"
-        hint="Em branco significa que prefere não responder."
-      />
-      <Field
-        label="Saciedade depois (0 a 10, opcional)"
-        value={values.satiety}
-        onChangeText={(v) => setValue('satiety', v)}
-        keyboardType="number-pad"
-      />
-      <Txt kind="label">Contexto opcional</Txt>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {(['', 'fome', 'tédio', 'rotina', 'social', 'estresse', 'outro'] as const).map((c) => (
-          <Choice
-            key={c}
-            label={c || 'Não responder'}
-            selected={context === c}
-            onPress={() => setContext(c)}
-          />
-        ))}
-      </View>
-      <Field
-        label="Observações da refeição (opcional)"
-        multiline
-        value={values.notes}
-        onChangeText={(v) => setValue('notes', v)}
-      />
+      <ExpandableSection
+        title="Data e horário"
+        summary={`${values.date.split('-').reverse().join('/')} · ${values.time}`}
+        defaultOpen={copy}
+      >
+        <Field
+          label="Data da refeição (AAAA-MM-DD)"
+          value={values.date}
+          onChangeText={(v) => setValue('date', v)}
+        />
+        <Field
+          label="Horário da refeição (HH:mm)"
+          value={values.time}
+          onChangeText={(v) => setValue('time', v)}
+          keyboardType="numbers-and-punctuation"
+        />
+        <Txt kind="muted">
+          Fuso deste registro: {initial.timezone}. Ao corrigir a data, o instante UTC é recalculado
+          junto com o dia civil.
+        </Txt>
+      </ExpandableSection>
+      <ExpandableSection
+        title="Mais detalhes (opcional)"
+        summary="Fome, saciedade, contexto e observações"
+        defaultOpen={Boolean(
+          initial.hunger !== null || initial.satiety !== null || initial.context || initial.notes,
+        )}
+      >
+        <Field
+          label="Fome antes (0 a 10, opcional)"
+          value={values.hunger}
+          onChangeText={(v) => setValue('hunger', v)}
+          keyboardType="number-pad"
+          hint="Em branco significa que prefere não responder."
+        />
+        <Field
+          label="Saciedade depois (0 a 10, opcional)"
+          value={values.satiety}
+          onChangeText={(v) => setValue('satiety', v)}
+          keyboardType="number-pad"
+        />
+        <Txt kind="label">Contexto opcional</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {(['', 'fome', 'tédio', 'rotina', 'social', 'estresse', 'outro'] as const).map((c) => (
+            <Choice
+              key={c}
+              label={c || 'Não responder'}
+              selected={context === c}
+              onPress={() => setContext(c)}
+            />
+          ))}
+        </View>
+        <Field
+          label="Observações da refeição (opcional)"
+          multiline
+          value={values.notes}
+          onChangeText={(v) => setValue('notes', v)}
+        />
+      </ExpandableSection>
       {validation ? <Notice error>{validation}</Notice> : null}
       {action.message ? <Notice error={action.failed}>{action.message}</Notice> : null}
       <Button

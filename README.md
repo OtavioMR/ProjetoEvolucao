@@ -1,6 +1,6 @@
 # Evolução
 
-Aplicativo pessoal Android com React Native, Expo Router, TypeScript estrito e SQLite local. Interface em pt-BR. **Incremento atual: Fase 1 — diário e dashboard.** Perfil, preferências, catálogo, refeições, receitas básicas, modelos, água e backup JSON são funcionais. Treinos e evolução corporal permanecem nas fases seguintes. O [relatório da entrega](docs/DELIVERY.md) distingue código verificado de aceite Android pendente.
+Aplicativo pessoal Android com React Native, Expo Router, TypeScript estrito e SQLite local. Interface em pt-BR. **Incremento atual: Fase 4 — Robustez e distribuição (aceite físico pendente).** Todos os módulos do núcleo (perfil, alimentação, água, treinos, cardio, peso, medidas, sono, hábitos, calendário, revisão semanal, backup JSON/CSV, lembretes locais e exclusão total) estão implementados. O [relatório da entrega](docs/DELIVERY.md) distingue código verificado de aceite Android pendente.
 
 ## Desenvolvimento
 
@@ -92,7 +92,7 @@ Os testes de interface são manuais no celular físico, conforme o [roteiro Andr
 
 O banco `evolucao.db` fica no armazenamento privado do app. A inicialização habilita FK e WAL, verifica versões e migra em transação antes de montar as telas. Migrações vivem em [migrations/](src/core/database/migrations/); a versão aplicada fica em `schema_migrations`. Nunca editar uma migração já entregue nem limpar banco para corrigir upgrade. Adicionar próxima versão e testar migração/rollback. Repositórios acessam uma fila única para preservar isolamento das transações na conexão com FK.
 
-SQLite padrão não oferece criptografia própria. Sem sincronização, reinstalação/perda do aparelho pode causar perda de dados. Backup automático Android está desabilitado na configuração nativa; Expo Go e SO têm limitações próprias. Em **Mais → Backup local**, exporte uma cópia JSON dos módulos entregues. A restauração valida o arquivo, mostra contagens, oferece exportar a base atual e exige digitar `SUBSTITUIR`; substitui todos os registros em uma transação. Arquivo inválido não altera a base. Limites: 10 MiB e 20.000 registros; formato 1, schema 2. Não existia formato de backup na Fase 0. Versões incompatíveis são recusadas. O arquivo não inclui fotos e não é criptografado. Cópias externas não podem ser apagadas pelo app.
+SQLite padrão não oferece criptografia própria. Sem sincronização, reinstalação/perda do aparelho pode causar perda de dados. Backup automático Android está desabilitado na configuração nativa; Expo Go e SO têm limitações próprias. Em **Mais → Backup local e CSV**, exporte uma cópia JSON completa (formato 1, schema 5, 29 tabelas) ou CSV UTF-8 por módulo com mitigação de fórmulas. A restauração valida o arquivo, aceita esquemas `v2` a `v5`, mostra contagens, oferece exportar a base atual e exige digitar `SUBSTITUIR`; substitui todos os registros em uma transação. Arquivo inválido ou versão `> 5` não altera a base. Limites: 10 MiB e 20.000 registros. O arquivo não inclui fotos e não é criptografado. Cópias externas não podem ser apagadas pelo app; a exclusão total em **Mais → Privacidade** (mediante confirmação `APAGAR TUDO`) limpa apenas os dados locais, arquivos temporários gerenciados e lembretes agendados, retornando ao onboarding.
 
 ## Diário e água
 

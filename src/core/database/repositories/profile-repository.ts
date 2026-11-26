@@ -1,4 +1,5 @@
-import { localDateAt } from '../../date-time/local-date.ts';
+import { shiftDate } from '../../date-time/event-time.ts';
+import { isLocalDate, localDateAt } from '../../date-time/local-date.ts';
 import { DatabaseQueue, type SqlConnection } from '../connection.ts';
 import {
   goalSchema,
@@ -171,6 +172,72 @@ export class ProfileRepository {
     await this.queue.transaction((db) =>
       this.writePreferences(db, id, p, this.now().toISOString(), false),
     );
+  }
+
+  /**
+   * Cria ou atualiza uma meta a partir de effectiveFromDate, encerrando a versão anterior na véspera
+   * para preservar o histórico e manter a restrição de não sobreposição do banco.
+   */
+  async upsertGoalVersion(
+    profileId: string,
+    metric: GoalMetric,
+    targetValue: number,
+    effectiveFromDate: string,
+    enabled: boolean,
+  ): Promise<void> {
+    if (!Number.isFinite(targetValue) || targetValue <= 0) {
+      throw new Error('Valor da meta deve ser positivo.');
+    }
+    if (!isLocalDate(effectiveFromDate)) {
+      throw new Error('Data de vigência inválida.');
+    }
+    const timestamp = this.now().toISOString();
+    const prevDay = shiftDate(effectiveFromDate, -1);
+    await this.queue.transaction(async (db) => {
+      const sameDay = await db.getFirstAsync<{ id: string }>(
+        'SELECT id FROM goal_versions WHERE profile_id = ? AND metric = ? AND effective_from_date = ?',
+        profileId,
+        metric,
+        effectiveFromDate,
+      );
+      if (sameDay) {
+        await db.runAsync(
+          'UPDATE goal_versions SET target_value = ?, enabled = ?, updated_at = ? WHERE id = ?',
+          targetValue,
+          enabled ? 1 : 0,
+          timestamp,
+          sameDay.id,
+        );
+        return;
+      }
+      const previous = await db.getFirstAsync<{ id: string }>(
+        'SELECT id FROM goal_versions WHERE profile_id = ? AND metric = ? AND effective_from_date < ? AND (effective_to_date IS NULL OR effective_to_date >= ?)',
+        profileId,
+        metric,
+        effectiveFromDate,
+        effectiveFromDate,
+      );
+      if (previous) {
+        await db.runAsync(
+          'UPDATE goal_versions SET effective_to_date = ?, updated_at = ? WHERE id = ?',
+          prevDay,
+          timestamp,
+          previous.id,
+        );
+      }
+      await db.runAsync(
+        'INSERT INTO goal_versions(id, profile_id, metric, target_value, unit, effective_from_date, effective_to_date, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)',
+        this.uuid(),
+        profileId,
+        metric,
+        targetValue,
+        goalUnits[metric],
+        effectiveFromDate,
+        enabled ? 1 : 0,
+        timestamp,
+        timestamp,
+      );
+    });
   }
 
   private async writePreferences(

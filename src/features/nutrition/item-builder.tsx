@@ -12,7 +12,16 @@ import {
   type Unit,
 } from '../../domain/nutrition/nutrition';
 import { parseOptionalNumber } from '../../domain/profile/profile';
-import { Button, Card, Choice, Field, Notice, Txt } from '../../shared/components/ui';
+import {
+  Button,
+  Card,
+  Choice,
+  ExpandableSection,
+  Field,
+  IconButton,
+  Notice,
+  Txt,
+} from '../../shared/components/ui';
 import { NutritionSummary } from '../diary/components';
 
 function ItemEditor({
@@ -31,9 +40,20 @@ function ItemEditor({
   const [error, setError] = useState('');
   return (
     <Card>
-      <Txt kind="label">
-        {item.name} {item.preparation ? `· ${item.preparation}` : ''}
-      </Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Txt kind="label">
+            {item.name} {item.preparation ? `· ${item.preparation}` : ''}
+          </Txt>
+        </View>
+        <IconButton icon="copy-outline" label={`Duplicar item ${item.name}`} onPress={duplicate} />
+        <IconButton
+          icon="trash-outline"
+          label={`Remover ${item.name} deste rascunho`}
+          destructive
+          onPress={remove}
+        />
+      </View>
       {item.quantity !== null ? (
         <>
           <Field
@@ -68,13 +88,13 @@ function ItemEditor({
       )}
       {error ? <Notice error>{error}</Notice> : null}
       <NutritionSummary items={[item]} />
-      <Field
-        label={`Observação de ${item.name}`}
-        value={item.notes}
-        onChangeText={(notes) => update({ ...item, notes })}
-      />
-      <Button secondary title={`Remover ${item.name} deste rascunho`} onPress={remove} />
-      <Button secondary title={`Duplicar item ${item.name}`} onPress={duplicate} />
+      <ExpandableSection title="Observação do item" defaultOpen={Boolean(item.notes)}>
+        <Field
+          label={`Observação de ${item.name}`}
+          value={item.notes}
+          onChangeText={(notes) => update({ ...item, notes })}
+        />
+      </ExpandableSection>
     </Card>
   );
 }

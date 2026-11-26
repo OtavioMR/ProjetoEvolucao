@@ -1,12 +1,18 @@
 import type { SqlConnection } from './connection.ts';
 import { foundationSql } from './migrations/001-foundation.ts';
 import { diarySql } from './migrations/002-diary.ts';
+import { trainingSql } from './migrations/003-training.ts';
+import { evolutionSql } from './migrations/004-evolution.ts';
+import { phase4Sql } from './migrations/005-phase4.ts';
 
 export const migrations = [
   { version: 1, sql: foundationSql },
   { version: 2, sql: diarySql },
+  { version: 3, sql: trainingSql },
+  { version: 4, sql: evolutionSql },
+  { version: 5, sql: phase4Sql },
 ];
-export const schemaVersion = 2;
+export const schemaVersion = 5;
 
 export async function migrateDatabase(db: SqlConnection): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');

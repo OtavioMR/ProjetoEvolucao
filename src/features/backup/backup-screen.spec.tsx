@@ -95,7 +95,7 @@ it('exporta arquivo somente após ação e abre compartilhamento explicitamente'
   await fireEvent.press(screen.getByRole('button', { name: 'Exportar backup JSON' }));
   await waitFor(() => expect(mockShare).toHaveBeenCalledTimes(1));
   expect(JSON.parse(mockWrite.mock.calls[0][0])).toMatchObject({
-    schemaVersion: 2,
+    schemaVersion: 5,
     formatVersion: 1,
   });
 });

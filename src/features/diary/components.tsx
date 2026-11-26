@@ -4,7 +4,7 @@ import { isLocalDate, localDateAt } from '../../core/date-time/local-date';
 import { shiftDate } from '../../core/date-time/event-time';
 import { summarize, type MealItem, type Nutrient } from '../../domain/nutrition/nutrition';
 import { useApp } from '../../shared/app-provider';
-import { Button, Card, Field, Notice, Txt } from '../../shared/components/ui';
+import { Button, Card, Field, IconButton, Notice, Txt } from '../../shared/components/ui';
 
 export const numberText = (n: number) =>
   new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(n);
@@ -13,6 +13,8 @@ export function DateSelector() {
   const [draft, setDraft] = useState(selectedDate);
   const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const today = localDateAt(new Date(), snapshot!.profile.timezone);
+  const isToday = selectedDate === today;
   const choose = (date: string) => {
     selectDate(date);
     setDraft(date);
@@ -21,31 +23,35 @@ export function DateSelector() {
   };
   return (
     <Card style={{ padding: 12, gap: 10 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Selecionar outra data"
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded(!expanded)}
-        style={{ minHeight: 48, justifyContent: 'center', gap: 4 }}
-      >
-        <Txt kind="label">Dia consultado · {selectedDate.split('-').reverse().join('/')}</Txt>
-        <Txt kind="muted">
-          {expanded ? 'Fechar escolha de data' : 'Toque para escolher outra data'}
-        </Txt>
-      </Pressable>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <Button
-          secondary
-          title="Dia anterior"
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <IconButton
+          icon="chevron-back"
+          label="Dia anterior"
           onPress={() => choose(shiftDate(selectedDate, -1))}
         />
-        <Button
-          secondary
-          title="Hoje"
-          onPress={() => choose(localDateAt(new Date(), snapshot!.profile.timezone))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Selecionar outra data"
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded(!expanded)}
+          style={{ flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 2 }}
+        >
+          <Txt kind="label" style={{ textAlign: 'center' }}>
+            {selectedDate.split('-').reverse().join('/')}
+          </Txt>
+          <Txt kind="muted" style={{ textAlign: 'center' }}>
+            {isToday ? 'Hoje · toque para trocar' : 'Toque para trocar data'}
+          </Txt>
+        </Pressable>
+        <IconButton
+          icon="chevron-forward"
+          label="Dia seguinte"
+          onPress={() => choose(shiftDate(selectedDate, 1))}
         />
-        <Button secondary title="Dia seguinte" onPress={() => choose(shiftDate(selectedDate, 1))} />
       </View>
+      {!isToday ? (
+        <Button compact secondary title="Voltar para hoje" onPress={() => choose(today)} />
+      ) : null}
       {expanded ? (
         <>
           <Field

@@ -64,6 +64,7 @@ it('registra descrição sem calorias na data escolhida e aguarda a gravação p
   await fireEvent.press(
     screen.getByRole('button', { name: 'Adicionar como descrição, sem pesar' }),
   );
+  await fireEvent.press(screen.getByRole('button', { name: 'Data e horário' }));
   await fireEvent.changeText(screen.getByLabelText('Horário da refeição (HH:mm)'), '23:50');
   expect(screen.queryByText(/kcal/)).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Salvar refeição' }));

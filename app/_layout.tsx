@@ -52,13 +52,20 @@ function Navigation() {
           <Stack.Screen name="settings/profile" options={{ title: 'Perfil' }} />
           <Stack.Screen name="settings/preferences" options={{ title: 'Preferências' }} />
           <Stack.Screen name="settings/privacy" options={{ title: 'Privacidade' }} />
-          <Stack.Screen name="settings/goals" options={{ title: 'Referências' }} />
+          <Stack.Screen name="settings/goals" options={{ title: 'Metas' }} />
           <Stack.Screen name="settings/backup" options={{ title: 'Backup local' }} />
+          <Stack.Screen name="settings/reminders" options={{ title: 'Lembretes' }} />
           <Stack.Screen name="hydration" options={{ title: 'Água' }} />
           <Stack.Screen name="nutrition/catalog" options={{ title: 'Catálogo' }} />
           <Stack.Screen name="nutrition/meal" options={{ title: 'Refeição' }} />
           <Stack.Screen name="nutrition/recipes" options={{ title: 'Receitas' }} />
           <Stack.Screen name="nutrition/templates" options={{ title: 'Modelos' }} />
+          <Stack.Screen name="progress/weight" options={{ title: 'Peso' }} />
+          <Stack.Screen name="progress/measurements" options={{ title: 'Medidas' }} />
+          <Stack.Screen name="progress/sleep" options={{ title: 'Sono' }} />
+          <Stack.Screen name="progress/habits" options={{ title: 'Hábitos' }} />
+          <Stack.Screen name="progress/calendar" options={{ title: 'Calendário' }} />
+          <Stack.Screen name="progress/review" options={{ title: 'Revisão' }} />
         </Stack.Protected>
       </Stack>
     </>

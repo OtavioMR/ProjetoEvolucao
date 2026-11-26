@@ -1,4 +1,5 @@
 import { randomUUID } from 'expo-crypto';
+import { Directory, File, Paths } from 'expo-file-system';
 import { openDatabaseAsync } from 'expo-sqlite';
 import {
   createContext,
@@ -15,23 +16,46 @@ import { migrateDatabase } from '../core/database/migrate';
 import { ProfileRepository } from '../core/database/repositories/profile-repository';
 import { DiaryRepository } from '../core/database/repositories/diary-repository';
 import { BackupRepository } from '../core/database/repositories/backup-repository';
+import { EvolutionRepository } from '../core/database/repositories/evolution-repository';
+import { ReminderRepository } from '../core/database/repositories/reminder-repository';
+import { TrainingRepository } from '../core/database/repositories/training-repository';
 import { localDateAt } from '../core/date-time/local-date';
-import type { AppSnapshot, Preferences, ProfileInput, SetupInput } from '../domain/profile/profile';
+import {
+  cancelAllScheduledReminders,
+  syncScheduledReminders,
+} from '../core/notifications/reminder-scheduler';
+import type {
+  AppSnapshot,
+  GoalMetric,
+  Preferences,
+  ProfileInput,
+  SetupInput,
+} from '../domain/profile/profile';
 
 type AppContextValue = {
   diary: DiaryRepository | null;
+  training: TrainingRepository | null;
+  evolution: EvolutionRepository | null;
   backup: BackupRepository | null;
+  reminders: ReminderRepository | null;
   selectedDate: string;
   selectDate: (date: string) => void;
   revision: number;
   recordsChanged: () => void;
   reloadProfile: () => Promise<void>;
+  eraseAllLocalData: () => Promise<void>;
   status: 'loading' | 'ready' | 'error';
   snapshot: AppSnapshot | null;
   retry: () => void;
   createProfile: (input: SetupInput) => Promise<void>;
   updateProfile: (input: ProfileInput) => Promise<void>;
   updatePreferences: (input: Preferences) => Promise<void>;
+  upsertGoal: (
+    metric: GoalMetric,
+    targetValue: number,
+    effectiveFromDate: string,
+    enabled: boolean,
+  ) => Promise<void>;
 };
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -42,7 +66,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   const repository = useRef<ProfileRepository | null>(null);
   const [services, setServices] = useState<{
     diary: DiaryRepository;
+    training: TrainingRepository;
+    evolution: EvolutionRepository;
     backup: BackupRepository;
+    reminders: ReminderRepository;
   } | null>(null);
   const [selectedDate, selectDate] = useState('');
   const [revision, setRevision] = useState(0);
@@ -64,7 +91,13 @@ export function AppProvider({ children }: PropsWithChildren) {
           return;
         }
         repository.current = repo;
-        setServices({ diary: new DiaryRepository(queue), backup: new BackupRepository(queue) });
+        setServices({
+          diary: new DiaryRepository(queue),
+          training: new TrainingRepository(queue),
+          evolution: new EvolutionRepository(queue),
+          backup: new BackupRepository(queue),
+          reminders: new ReminderRepository(queue, randomUUID),
+        });
         selectDate(localDateAt(new Date(), data?.profile.timezone ?? 'America/Sao_Paulo'));
         initialized = true;
         setSnapshot(data);
@@ -93,7 +126,10 @@ export function AppProvider({ children }: PropsWithChildren) {
     <AppContext.Provider
       value={{
         diary: services?.diary ?? null,
+        training: services?.training ?? null,
+        evolution: services?.evolution ?? null,
         backup: services?.backup ?? null,
+        reminders: services?.reminders ?? null,
         selectedDate,
         selectDate,
         revision,
@@ -101,6 +137,26 @@ export function AppProvider({ children }: PropsWithChildren) {
         reloadProfile: async () => {
           if (!repository.current) throw new Error('database_unavailable');
           setSnapshot(await repository.current.read());
+          setRevision((n) => n + 1);
+        },
+        eraseAllLocalData: async () => {
+          if (!services?.backup) throw new Error('database_unavailable');
+          await cancelAllScheduledReminders();
+          for (const dir of [Paths.cache, Paths.document]) {
+            try {
+              const entries = new Directory(dir).list();
+              for (const entry of entries) {
+                if (entry instanceof File && entry.name.startsWith('evolucao-')) {
+                  entry.delete();
+                }
+              }
+            } catch {
+              // Diretório opcional em ambiente web/teste.
+            }
+          }
+          await services.backup.eraseAllData();
+          setSnapshot(null);
+          selectDate('');
           setRevision((n) => n + 1);
         },
         status,
@@ -118,11 +174,36 @@ export function AppProvider({ children }: PropsWithChildren) {
           execute(async (repo) => {
             if (!snapshot) throw new Error('profile_not_found');
             await repo.updateProfile(snapshot.profile.id, input);
+            if (services?.reminders) {
+              await syncScheduledReminders(
+                services.reminders,
+                snapshot.profile.id,
+                input.timezone,
+              ).catch(() => undefined);
+            }
           }),
         updatePreferences: (input) =>
           execute(async (repo) => {
             if (!snapshot) throw new Error('profile_not_found');
             await repo.updatePreferences(snapshot.profile.id, input);
+            if (services?.reminders) {
+              await syncScheduledReminders(
+                services.reminders,
+                snapshot.profile.id,
+                snapshot.profile.timezone,
+              ).catch(() => undefined);
+            }
+          }),
+        upsertGoal: (metric, targetValue, effectiveFromDate, enabled) =>
+          execute(async (repo) => {
+            if (!snapshot) throw new Error('profile_not_found');
+            await repo.upsertGoalVersion(
+              snapshot.profile.id,
+              metric,
+              targetValue,
+              effectiveFromDate,
+              enabled,
+            );
           }),
       }}
     >

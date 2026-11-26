@@ -3,10 +3,32 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { randomUUID } from 'expo-crypto';
 import { useState } from 'react';
+import { View } from 'react-native';
 import { backupLimit, parseBackup, type Backup } from '../../domain/backup/backup';
+import { csvModuleLabels, type CsvModule } from '../../domain/backup/csv';
 import { useApp } from '../../shared/app-provider';
-import { Button, Card, Field, Header, Notice, Screen, Txt } from '../../shared/components/ui';
+import {
+  Button,
+  Card,
+  ExpandableSection,
+  Field,
+  Header,
+  Notice,
+  Screen,
+  Txt,
+} from '../../shared/components/ui';
 import { useAction } from '../diary/use-diary';
+
+const csvModules: CsvModule[] = [
+  'nutrition',
+  'hydration',
+  'training',
+  'cardio',
+  'weight',
+  'measurements',
+  'sleep',
+  'habits',
+];
 
 export function BackupScreen() {
   const { backup, reloadProfile } = useApp();
@@ -15,6 +37,7 @@ export function BackupScreen() {
   const [exportOffered, setExportOffered] = useState(false);
   const [validation, setValidation] = useState('');
   const action = useAction();
+
   async function exportFile() {
     if (!(await Sharing.isAvailableAsync())) throw new Error('Compartilhamento indisponível.');
     const content = JSON.stringify(await backup!.export());
@@ -28,16 +51,30 @@ export function BackupScreen() {
       dialogTitle: 'Salvar backup privado do Evolução',
     });
   }
+
+  async function exportCsv(module: CsvModule) {
+    if (!(await Sharing.isAvailableAsync())) throw new Error('Compartilhamento indisponível.');
+    const csv = await backup!.exportCsvModule(module);
+    const file = new File(Paths.cache, `evolucao-csv-${module}-${randomUUID()}.csv`);
+    file.create();
+    file.write(csv);
+    await Sharing.shareAsync(file.uri, {
+      mimeType: 'text/csv',
+      UTI: 'public.comma-separated-values-text',
+      dialogTitle: `Exportar CSV — ${csvModuleLabels[module]}`,
+    });
+  }
+
   return (
     <Screen insetTop={false}>
       <Header
-        eyebrow="Configurações / Backup"
+        eyebrow="Configurações / Backup e Exportação"
         title="Uma cópia sob seu controle."
-        description="Backup JSON do perfil, preferências, metas, catálogo, receitas, modelos, refeições e água."
+        description="Backup JSON completo de todos os módulos e exportação CSV UTF-8 sob demanda."
       />
       <Notice>
-        O arquivo contém dados pessoais e de saúde e não é criptografado. Escolha onde guardar e com
-        quem compartilhar. Nenhum arquivo é enviado automaticamente.
+        Os arquivos exportados contêm dados pessoais e de saúde e não são criptografados. Escolha
+        onde guardar e com quem compartilhar. Nenhum arquivo é enviado automaticamente.
       </Notice>
       <Button
         title="Exportar backup JSON"
@@ -85,20 +122,30 @@ export function BackupScreen() {
         <Card>
           <Txt kind="heading">Prévia da restauração</Txt>
           <Txt kind="muted">
-            Exportado em {new Date(preview.exportedAt).toLocaleString('pt-BR')} · formato 1 / banco
-            2
+            Exportado em {new Date(preview.exportedAt).toLocaleString('pt-BR')} · formato{' '}
+            {preview.formatVersion} / esquema {preview.schemaVersion}
           </Txt>
           <Txt>
-            {preview.tables.meals.length} refeições · {preview.tables.meal_items.length} itens ·{' '}
-            {preview.tables.water_entries.length} bebidas
+            Perfil: 1 perfil · 1 conjunto de preferências · {preview.tables.goal_versions.length}{' '}
+            versões de metas · {preview.tables.reminders.length} lembretes
           </Txt>
           <Txt>
-            {preview.tables.foods.length} alimentos · {preview.tables.recipes.length} receitas ·{' '}
+            Nutrição e água: {preview.tables.meals.length} refeições ·{' '}
+            {preview.tables.meal_items.length} itens · {preview.tables.water_entries.length} bebidas
+            · {preview.tables.foods.length} alimentos · {preview.tables.recipes.length} receitas ·{' '}
             {preview.tables.meal_templates.length} modelos
           </Txt>
           <Txt>
-            1 perfil · 1 conjunto de preferências · {preview.tables.goal_versions.length} versões de
-            metas
+            Treinos e cardio: {preview.tables.exercises.length} exercícios ·{' '}
+            {preview.tables.workout_templates.length} fichas ·{' '}
+            {preview.tables.workout_sessions.length} sessões · {preview.tables.workout_sets.length}{' '}
+            séries · {preview.tables.cardio_entries.length} cardios
+          </Txt>
+          <Txt>
+            Evolução: {preview.tables.weight_entries.length} pesagens ·{' '}
+            {preview.tables.measurement_entries.length} medidas ·{' '}
+            {preview.tables.sleep_entries.length} registros de sono · {preview.tables.habits.length}{' '}
+            hábitos · {preview.tables.weekly_reviews.length} revisões
           </Txt>
           <Notice>
             A restauração substitui todos os dados atuais pelos dados do arquivo. IDs iguais não
@@ -154,6 +201,29 @@ export function BackupScreen() {
           )}
         </Card>
       ) : null}
+      <ExpandableSection
+        title="Exportar CSV por módulo"
+        summary="UTF-8 com cabeçalhos, unidades e proteção contra fórmulas em planilhas"
+      >
+        <View style={{ gap: 10 }}>
+          {csvModules.map((module) => (
+            <Button
+              key={module}
+              secondary
+              compact
+              title={`Exportar CSV · ${csvModuleLabels[module]}`}
+              busy={action.busy}
+              icon="document-text-outline"
+              onPress={() =>
+                void action.run(
+                  () => exportCsv(module),
+                  `CSV de ${csvModuleLabels[module]} preparado para compartilhamento.`,
+                )
+              }
+            />
+          ))}
+        </View>
+      </ExpandableSection>
       <Txt kind="muted">
         Limites: 10 MiB e 20.000 registros por backup. Versões futuras são recusadas. Não há fotos
         neste formato. Reinstalação ou perda do dispositivo pode apagar o banco local.

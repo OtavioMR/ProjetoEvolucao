@@ -25,19 +25,36 @@ test('migra banco vazio e reexecuta sem alterar perfil nem criar eventos', async
     assert.deepEqual(
       tables.map((t) => t.name),
       [
+        'body_milestones',
+        'cardio_entries',
+        'exercises',
         'food_portions',
         'foods',
         'goal_versions',
+        'habit_logs',
+        'habits',
         'meal_items',
         'meal_template_items',
         'meal_templates',
         'meals',
+        'measurement_entries',
         'preferences',
         'profile',
         'recipe_items',
         'recipes',
+        'reminders',
         'schema_migrations',
+        'sleep_entries',
+        'training_day_overrides',
+        'training_plan_versions',
         'water_entries',
+        'weekly_reviews',
+        'weight_entries',
+        'workout_session_exercises',
+        'workout_sessions',
+        'workout_sets',
+        'workout_template_exercises',
+        'workout_templates',
       ],
     );
     assert.equal(before?.goals[0]?.effectiveFromDate, '2026-04-07');
@@ -174,12 +191,12 @@ test('versão futura recusa inicialização sem alterar dados existentes', async
     await migrateDatabase(db);
     await repo.create(syntheticSetup());
     const before = await repo.read();
-    await db.runAsync('INSERT INTO schema_migrations VALUES (?, ?)', 3, '2026-04-01T00:00:00Z');
+    await db.runAsync('INSERT INTO schema_migrations VALUES (?, ?)', 6, '2026-04-01T00:00:00Z');
     await assert.rejects(migrateDatabase(db), /unsupported_schema_version/);
     assert.deepEqual(await repo.read(), before);
     assert.equal(
       (await db.getFirstAsync<{ n: number }>('SELECT count(*) n FROM schema_migrations'))?.n,
-      3,
+      6,
     );
   } finally {
     native.close();

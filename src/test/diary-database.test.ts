@@ -80,7 +80,10 @@ test('upgrade 1→2 preserva perfil e metas e não cria consumo; reexecutar é i
       meals: [],
       water: [],
     });
-    assert.equal((await c.db.getAllAsync('SELECT * FROM schema_migrations')).length, 2);
+    assert.equal(
+      (await c.db.getAllAsync('SELECT * FROM schema_migrations')).length,
+      migrations.length,
+    );
   } finally {
     c.native.close();
   }
@@ -306,7 +309,7 @@ test('backup inclui todos os módulos e recusa versões, colunas, IDs e relaçõ
     const backup = await c.backup.export();
     for (const mutate of [
       (v: typeof backup) => {
-        v.schemaVersion = 99 as 2;
+        v.schemaVersion = 99 as typeof v.schemaVersion;
       },
       (v: typeof backup) => {
         v.tables.meals[0]!.extra = 'injetado';

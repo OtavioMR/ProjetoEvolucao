@@ -15,6 +15,8 @@ import {
   Button,
   Card,
   Choice,
+  CompactRow,
+  ExpandableSection,
   Field,
   Header,
   Notice,
@@ -109,11 +111,6 @@ function FoodEditor({
         onChangeText={(v) => setValue('preparation', v)}
       />
       <Field
-        label="Marca (opcional)"
-        value={values.brand}
-        onChangeText={(v) => setValue('brand', v)}
-      />
-      <Field
         label="Quantidade de referência"
         value={values.reference}
         onChangeText={(v) => setValue('reference', v)}
@@ -145,26 +142,42 @@ function FoodEditor({
           keyboardType="decimal-pad"
         />
       ))}
-      <Field
-        label="Fonte dos nutrientes"
-        hint="Ex.: rótulo confirmado ou identificação da tabela consultada."
-        value={values.source}
-        onChangeText={(v) => setValue('source', v)}
-      />
-      <Field
-        label="Data ou versão da fonte (opcional)"
-        value={values.version}
-        onChangeText={(v) => setValue('version', v)}
-      />
-      <Toggle title="Favorito" value={favorite} onChange={setFavorite} />
-      <Toggle
-        title="Arquivar alimento"
-        detail="Oculta da busca e preserva o histórico."
-        value={archived}
-        onChange={setArchived}
-      />
-      <Card>
-        <Txt kind="heading">Equivalências deste alimento</Txt>
+      <ExpandableSection
+        title="Marca, fonte e opções"
+        summary="Origem dos nutrientes, favorito e arquivamento"
+        defaultOpen={Boolean(
+          values.brand || values.source || values.version || favorite || archived,
+        )}
+      >
+        <Field
+          label="Marca (opcional)"
+          value={values.brand}
+          onChangeText={(v) => setValue('brand', v)}
+        />
+        <Field
+          label="Fonte dos nutrientes"
+          hint="Ex.: rótulo confirmado ou identificação da tabela consultada."
+          value={values.source}
+          onChangeText={(v) => setValue('source', v)}
+        />
+        <Field
+          label="Data ou versão da fonte (opcional)"
+          value={values.version}
+          onChangeText={(v) => setValue('version', v)}
+        />
+        <Toggle title="Favorito" value={favorite} onChange={setFavorite} />
+        <Toggle
+          title="Arquivar alimento"
+          detail="Oculta da busca e preserva o histórico."
+          value={archived}
+          onChange={setArchived}
+        />
+      </ExpandableSection>
+      <ExpandableSection
+        title={`Equivalências (${portions.length})`}
+        summary="Medidas caseiras ou porções deste alimento"
+        defaultOpen={portions.length > 0}
+      >
         {portions.map((p) => (
           <View key={p.id} style={{ gap: 8 }}>
             <Txt>
@@ -229,7 +242,7 @@ function FoodEditor({
             }
           }}
         />
-      </Card>
+      </ExpandableSection>
       {error ? <Notice error>{error}</Notice> : null}
       <Button
         title="Salvar alimento"
@@ -318,18 +331,35 @@ export function CatalogScreen() {
             </>
           ) : null}
           <Field label="Buscar no catálogo" value={query} onChangeText={setQuery} />
-          {data.catalog.foods
-            .filter((f) =>
+          {(() => {
+            const filtered = data.catalog.foods.filter((f) =>
               f.name.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')),
-            )
-            .map((f) => (
-              <Button
-                key={f.id}
-                secondary
-                title={`${f.name}${f.preparation ? ` · ${f.preparation}` : ''}${f.favorite ? ' · favorito' : ''}${f.archived ? ' · arquivado' : ''}`}
-                onPress={() => setEditing(f)}
-              />
-            ))}
+            );
+            return filtered.length ? (
+              <Card>
+                {filtered.map((f, index) => {
+                  const meta = [
+                    f.favorite ? 'Favorito' : '',
+                    f.archived ? 'Arquivado' : '',
+                    f.source || '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  return (
+                    <CompactRow
+                      key={f.id}
+                      last={index === filtered.length - 1}
+                      title={`${f.name}${f.preparation ? ` · ${f.preparation}` : ''}`}
+                      subtitle={meta || undefined}
+                      onPress={() => setEditing(f)}
+                    />
+                  );
+                })}
+              </Card>
+            ) : (
+              <Notice>Nenhum alimento encontrado para essa busca.</Notice>
+            );
+          })()}
         </>
       )}
     </Screen>

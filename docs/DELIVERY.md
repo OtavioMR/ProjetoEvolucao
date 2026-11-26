@@ -1,6 +1,58 @@
 # Estado da entrega
 
-Fase atual: **1 — Diário e dashboard implementados; aceite Android completo pendente**. A solicitação de continuidade iniciou esta fase, preservando a pendência manual F0-09. O produto completo ainda não está entregue. A Fase 2 não foi iniciada.
+Fase atual: **4 — Robustez e distribuição implementada; aceite em celular físico e APK pendentes**. A Fase 4 foi implementada mantendo explícitas as pendências de validação física (`DEV-03`, `F0-09`, `F1-10`, `F2-08`, `F3-08` e `F4-06`). Nenhum celular físico estava conectado via ADB na verificação final.
+
+## Incremento da Fase 4
+
+- Migração `005` aditiva ([005-phase4.ts](../src/core/database/migrations/005-phase4.ts)): tabela `reminders` com `UNIQUE(profile_id, category)` e `schemaVersion: 5`.
+- Domínio e scheduler de lembretes locais opt-in em [reminders.ts](../src/domain/reminders/reminders.ts) e [reminder-scheduler.ts](../src/core/notifications/reminder-scheduler.ts) com `expo-notifications`, janela de silêncio cruzando meia-noite, limite semanal de notificações, texto neutro (sem peso, calorias ou fotos), permissão contextual e reagendamento ao alterar preferências ou fuso.
+- Exportação CSV UTF-8 por módulo em [csv.ts](../src/domain/backup/csv.ts) e [backup-repository.ts](../src/core/database/repositories/backup-repository.ts) com BOM UTF-8, escaping RFC 4180 e mitigação de injeção de fórmulas (`=`, `+`, `-`, `@`, `\t`, `\r`).
+- Backup atualizado para `schemaVersion: 5` (29 tabelas), importação retroativa de `v2`/`v3`/`v4`, prévia completa de todos os módulos em [backup-screen.tsx](../src/features/backup/backup-screen.tsx) e exclusão total transacional (`eraseAllData` + limpeza de cache/documentos + cancelamento de notificações + retorno ao onboarding) em [privacy.tsx](../app/settings/privacy.tsx).
+- Nova tela de lembretes em [reminders-screen.tsx](../src/features/settings/reminders-screen.tsx) / [reminders.tsx](../app/settings/reminders.tsx) e atualização de [more.tsx](<../app/(tabs)/more.tsx>).
+
+## Verificações da Fase 4
+
+| Comando / fluxo            | Evidência                                                                                                                                                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`            | Passou: `tsc --noEmit`, `eslint --max-warnings 0`, **12 suítes / 46 testes Jest** (`csv.spec.ts`, `reminders.spec.ts`, `phase4-screens.spec.tsx` incluídos), **25 testes em SQLite real em arquivo** (`phase4-database.test.ts` incluído) e `prettier --check`. |
+| `npm run build`            | Exportação Android passou: bundle Hermes de 4,5 MB (`dist/`). Não é APK.                                                                                                                                                                                        |
+| `npx expo install --check` | Dependências compatíveis e atualizadas (`Dependencies are up to date`).                                                                                                                                                                                         |
+| `npx expo-doctor`          | 20/20 verificações passaram.                                                                                                                                                                                                                                    |
+| Celular físico / APK       | Pendente (`DEV-03`, `F0-09`, `F1-10`, `F2-08`, `F3-08`, `F4-06`): `adb devices` retornou lista vazia.                                                                                                                                                           |
+
+## Incremento da Fase 3
+
+- Migração `004` aditiva: `weight_entries`, `measurement_entries`, `body_milestones`, `sleep_entries`, `habits`, `habit_logs` (`UNIQUE(habit_id, local_date)`) e `weekly_reviews` (`UNIQUE(profile_id, week_start_date)`).
+- Domínio puro em [evolution.ts](../src/domain/evolution/evolution.ts): última pesagem do dia, variação absoluta/percentual (`−4,5 kg / 5%`), média móvel com cobertura, quebra de lacunas em gráficos, IMC opcional, união de intervalos UTC de sono, estados de hábitos, calendário mensal e resumo copiável em Markdown.
+- Repositório [evolution-repository.ts](../src/core/database/repositories/evolution-repository.ts) na mesma `DatabaseQueue`, `upsertGoalVersion` em [profile-repository.ts](../src/core/database/repositories/profile-repository.ts) (preservando histórico e triggers de não sobreposição) e backup atualizado para `schemaVersion: 4` (28 tabelas, com importação retroativa v2 e v3).
+- Novas rotas e telas em `app/(tabs)/progress.tsx`, `app/progress/*` (`weight`, `measurements`, `sleep`, `habits`, `calendar`, `review`), edição de metas com vigência em `app/settings/goals.tsx`, cards de Peso e Sono em `TodayScreen` e atalhos em `MoreScreen`.
+- Dependências instaladas via `npx expo install`: `react-native-svg` e `expo-clipboard`.
+
+## Verificações da Fase 3
+
+| Comando / fluxo            | Evidência                                                                                                                                                                                                                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`            | Passou: `tsc --noEmit`, `eslint --max-warnings 0`, **9 suítes / 38 testes Jest** (`evolution.spec.ts` incluído), **24 testes em SQLite real em arquivo** (`database.test.ts`, `diary-database.test.ts`, `training-database.test.ts`, `evolution-database.test.ts`) e `prettier --check`. |
+| `npm run build`            | Exportação Android passou: bundle Hermes de 4,3 MB (`dist/`). Não é APK.                                                                                                                                                                                                                 |
+| `npx expo install --check` | Dependências compatíveis e atualizadas (`Dependencies are up to date`).                                                                                                                                                                                                                  |
+| Celular físico / Expo Go   | Pendente (`DEV-03`, `F0-09`, `F1-10`, `F2-08`, `F3-08`).                                                                                                                                                                                                                                 |
+
+## Incremento da Fase 2
+
+- Migração `003` aditiva: `exercises`, `workout_templates`, `workout_template_exercises`, `training_plan_versions` (triggers de não sobreposição), `training_day_overrides`, `workout_sessions` (índice parcial `workout_sessions_one_active`), `workout_session_exercises`, `workout_sets` e `cardio_entries` (`session_id ON DELETE SET NULL`).
+- Domínio puro em [training.ts](../src/domain/training/training.ts): cálculo de volume (`kg·reps`), exclusão de séries puladas/aquecimento por padrão, timer absoluto por `targetEndAt`, resolução de agenda versionada/overrides, recordes comparáveis por mesma convenção de carga, resumo de cardio sem duplicidade e seeds confirmáveis (exercícios base, Readaptação e Treino A/B).
+- Repositório [training-repository.ts](../src/core/database/repositories/training-repository.ts) na mesma `DatabaseQueue`: persistência incremental série a série, retomada da sessão ativa, cópia explícita da última sessão comparável, edição retroativa e desvinculação de cardio sem perda do registro.
+- Backup atualizado para `schemaVersion: 3` com validação estrita das 21 tabelas e compatibilidade de restauração para backups `schemaVersion: 2`.
+- Novas rotas e telas em `app/(tabs)/training.tsx`, `app/training/*` (`library`, `templates`, `plan`, `session`, `history`, `cardio`) e card real de Treinos e Cardio em `TodayScreen`.
+
+## Verificações da Fase 2
+
+| Comando / fluxo            | Evidência                                                                                                                                                                                                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`            | Passou: `tsc --noEmit`, `eslint --max-warnings 0`, **8 suítes / 34 testes Jest** (`training.spec.ts` incluído), **23 testes em SQLite real em arquivo** (`database.test.ts`, `diary-database.test.ts`, `training-database.test.ts`) e `prettier --check`. |
+| `npm run build`            | Exportação Android passou: bundle Hermes de ~4 MB (`dist/`). Não é APK.                                                                                                                                                                                   |
+| `npx expo install --check` | Dependências compatíveis e atualizadas.                                                                                                                                                                                                                   |
+| Celular físico / Expo Go   | Pendente (`DEV-03`, `F0-09`, `F1-10`, `F2-08`).                                                                                                                                                                                                           |
 
 ## Fluxo atual de desenvolvimento no celular
 
@@ -28,6 +80,7 @@ Resultado da revisão documental: `npm run format:check` passou; 56 links relati
 - Água rápida pelas preferências, volume personalizado, edição retroativa, histórico por dia e desfazer o último copo por ID. Outras bebidas são registráveis e não entram no total de água pura.
 - Dashboard e diário compartilham seleção de dia; atalhos abrem os registros da data. Ausência de dados aparece como não registrado/informado. Calorias/macros ocultos não aparecem nas telas de acompanhamento.
 - Backup JSON formato 1/schema 2 de todos os módulos entregues. Prévia com contagens; validação de tabelas/colunas, IDs, relações, datas, metas e limites de 10 MiB/20.000 registros. Exportação explícita; oferta de exportar dados atuais e confirmação digitada antes de substituição transacional. Sem fotos, mesclagem ou envio automático.
+- Reorganização de interface da Fase 1: componentes reutilizáveis (`ExpandableSection`, `SegmentedControl`, `IconButton`, `CompactRow` e `ActionSheetModal`), seletor de data compacto, tela `Hoje` enxuta sem atalho redundante de backup, separação `Diário`/`Biblioteca` em `Alimentação`, divulgação progressiva em formulários de refeição/itens/catálogo e listas compactas com menu de ações em `Hidratação`, `Catálogo`, `Receitas` e `Modelos`, mantendo alvos ≥48 dp e sem alterar banco/domínio.
 
 ## Verificações do incremento
 
@@ -112,4 +165,4 @@ O primeiro roteiro Android revelou a rolagem mantida entre etapas do onboarding;
 
 ## Próximo incremento exato
 
-Concluir os aceites F0-09/F1-10 do [roteiro Android](TESTING.md), sobretudo restauração por seletor do sistema e fluxos nutricionais completos. Corrigir os problemas encontrados sem alterar migrações já utilizadas. Após revisão e nova solicitação para a próxima fase, iniciar F2-01/F2-02: biblioteca/fichas e agenda versionada; depois sessão recuperável/timer e cardio. Ampliar o backup ao introduzir novos módulos. Não iniciar a Fase 2 silenciosamente.
+Validar em celular físico via Expo Go (`npm start` ou `npm run start:tunnel`) ou APK release (`npm run android:build` com celular conectado e SDK/JDK configurados) os aceites pendentes `DEV-03`, `F0-09`, `F1-10`, `F2-08`, `F3-08` e `F4-06` conforme [TESTING.md](TESTING.md).
